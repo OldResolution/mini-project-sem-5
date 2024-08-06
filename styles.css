@@ -1,8 +1,93 @@
-body, html {
+body {
     height: 100%;
     margin: 0;
+    padding: 0;
+    font-family: 'Lato', sans-serif;
+    color: #272a2f;
 }
 #map {
     height: 100vh;
     width: 100%;
+}
+.custom-control {
+    background: white;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+}
+.custom-control .content {
+    display: none;
+    margin-top: 10px;
+}
+.custom-control h3 {
+    margin: 0;
+    cursor: pointer;
+    font-size: 18px;
+}
+.custom-control input[type="radio"] {
+    margin-right: 5px;
+}
+@import url('https://fonts.googleapis.com/css?family=Raleway:300,400');
+.radio {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+    margin: .67rem;
+    margin-top: 0;
+    cursor: pointer;
+    pointer-events: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    transform-origin: center;
+    border: .05rem solid darkgray;
+    border-radius: 50% 50% .2rem 50%;
+    background: gainsboro;
+    transition: all 250ms ease-in-out;
+}
+.radio::before,
+.radio::after {
+    position: absolute;
+    content: '';
+    border-radius: 50%;
+}
+.radio::before {
+    top: .25rem;
+    left: .25rem;
+    width: 1rem;
+    height: 1rem;
+    background: white;
+    border: .125rem solid gainsboro;
+    box-shadow: 0 0 .05rem rgba(0,0,0,.25);
+    pointer-events: all;
+    transition: all 250ms ease-in-out;
+}
+.radio::after {
+    width: 2rem;
+    height: .67rem;
+    top: 2.19rem;
+    left: 1.5rem;
+    background: gainsboro;
+    opacity: 0.25;
+    transform-origin: right middle;
+    transform: rotateZ(-45deg);
+    overflow: visible;
+    background: radial-gradient(ellipse at center, gainsboro 0%, transparent 50%);
+    transition: height 1s ease, opacity 1s ease;
+}
+.radio:checked {
+    background: whitesmoke;
+    transform: scale(1.2);
+    transition: background 250ms ease-in-out;
+}
+.radio:checked::before {
+    width: .75rem;
+    height: .75rem;
+    background: magenta;
+    border: .25rem solid rgba(255, 255, 255, 0.5);
 }
