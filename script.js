@@ -16,7 +16,7 @@ var baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Population Layer (Example using a tile layer)
+// Population Layer
 var populationLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: 'Population Data &copy; OpenStreetMap contributors'
 });
@@ -26,7 +26,7 @@ var WAQI_URL = "https://tiles.waqi.info/tiles/usepa-aqi/{z}/{x}/{y}.png?token=5c
 var WAQI_ATTR = 'Air Quality Tiles &copy; <a href="http://waqi.info">waqi.info</a>';
 var waqiLayer = L.tileLayer(WAQI_URL, { attribution: WAQI_ATTR });
 
-// Climate Layer (Example using a different tile layer)
+// Climate Layer
 var climateLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: 'Climate Data &copy; OpenStreetMap contributors'
 });
