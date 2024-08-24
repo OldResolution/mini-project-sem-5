@@ -31,6 +31,26 @@ var climateLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.p
     attribution: 'Climate Data &copy; OpenStreetMap contributors'
 });
 
+// OSM DE Layer (Example using a different tile layer)
+var deLayer = L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
+	maxZoom: 18,
+	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+});
+
+// Satellite layer
+var satelliteLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+});
+
+// Dark Layer 
+var darkLayer = L.tileLayer('https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.png?access-token=V2sjOIE1X0a8eylOLVh2T5KsxwTLmusfEXqGlpImHRkjATJAH2rYw9ACYCLjo4bd', {
+	attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; <b>Jawg</b>Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	minZoom: 0,
+	maxZoom: 22,
+	accessToken: 'V2sjOIE1X0a8eylOLVh2T5KsxwTLmusfEXqGlpImHRkjATJAH2rYw9ACYCLjo4bd'
+});
+
 // Add a marker for CSMT with a popup
 L.marker([18.9398, 72.8355]).addTo(map)
     .bindPopup('Chhatrapati Shivaji Maharaj Terminus (CSMT).<br> A historic railway station in Mumbai.')
@@ -50,12 +70,22 @@ function switchLayer() {
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
     } else if (document.getElementById('climate').checked) {
         climateLayer.addTo(map);
-    }
+    } else if (document.getElementById('de').checked) {
+        deLayer.addTo(map);
+    } else if (document.getElementById('satellite').checked) {
+        satelliteLayer.addTo(map); 
+    } else if (document.getElementById('dark').checked) {
+        darkLayer.addTo(map);
+}
+
 }
 
 document.getElementById('population').addEventListener('change', switchLayer);
 document.getElementById('pollution').addEventListener('change', switchLayer);
 document.getElementById('climate').addEventListener('change', switchLayer);
+document.getElementById('de').addEventListener('change', switchLayer);
+document.getElementById('satellite').addEventListener('change', switchLayer);
+document.getElementById('dark').addEventListener('change', switchLayer);
 
 // Toggle content visibility
 var toggleControl = document.querySelector('.custom-control h3');
