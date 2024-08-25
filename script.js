@@ -24,7 +24,21 @@ var populationLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y
 // WAQI Pollution Layer
 var WAQI_URL = "https://tiles.waqi.info/tiles/usepa-aqi/{z}/{x}/{y}.png?token=5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572";
 var WAQI_ATTR = 'Air Quality Tiles &copy; <a href="http://waqi.info">waqi.info</a>';
-var waqiLayer = L.tileLayer(WAQI_URL, { attribution: WAQI_ATTR });
+var waqiLayer = L.tileLayer(WAQI_URL, { attribution: WAQI_ATTR })
+
+//Heat Map Example
+var testData = [
+    [19.076, 72.8777, 15],
+    [19.089, 72.865, 40]
+  ]
+
+  L.heatLayer(testData, {
+    radius: 25,
+    blur: 15,
+    maxZoom: 17,
+    gradient: {0.4: 'blue', 0.6: 'lime', 0.8: 'red'}
+  }).addTo(map);
+
 
 // Climate Layer
 var climateLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
