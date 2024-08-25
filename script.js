@@ -141,3 +141,60 @@ map.on('moveend', function() {
     }
 });
 fetchAndDisplayMarkers(); // Initial load
+
+let selectedAreaBounds = null; // Global variable to store the selected area bounds
+
+// Define the selectAreaFeature control
+var selectFeature = map.selectAreaFeature;
+var isFeatureEnabled = false;
+
+// Toggle button functionality
+document.getElementById('toggle-select').onclick = function() {
+    if (isFeatureEnabled) {
+        selectFeature.disable();
+        isFeatureEnabled = false;
+        this.classList.remove("active");
+    } else {
+        selectFeature.enable();
+        isFeatureEnabled = true;
+        this.classList.add("active");
+    }
+};
+// You can do the same for the clear button if needed
+document.getElementById('clear-selector').onclick = function() {
+    selectFeature.removeAllArea();
+    document.getElementById('toggle-select').classList.remove("active");
+};
+// Capture selected area coordinates
+map.on('areaselected', function (e) {
+    console.log('Area selected event fired'); // This should appear in your console
+    var coordinates = e.bounds.toBBoxString();
+    document.getElementById('selected-coordinates').innerHTML = `Selected Coordinates: ${coordinates}`;
+    console.log('Selected Coordinates:', e.bounds);
+    sendCoordinatesToServer(e.bounds);
+});
+
+// Function to send coordinates to the terminal (or for further processing)
+function sendCoordinatesToServer(bounds) {
+    const boundsData = {
+        northEast: bounds.getNorthEast(),
+        southWest: bounds.getSouthWest()
+    };
+
+    console.log('Sending Coordinates to Server:', boundsData);
+
+    fetch('https://your-server-endpoint.example.com/process-coordinates', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(boundsData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Server Response:', data);
+    })
+    .catch(error => {
+        console.error('Error sending coordinates to server:', error);
+    });
+}
