@@ -24,32 +24,44 @@ var populationLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y
 // WAQI Pollution Layer
 var WAQI_URL = "https://tiles.waqi.info/tiles/usepa-aqi/{z}/{x}/{y}.png?token=5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572";
 var WAQI_ATTR = 'Air Quality Tiles &copy; <a href="http://waqi.info">waqi.info</a>';
-var waqiLayer = L.tileLayer(WAQI_URL, { attribution: WAQI_ATTR })
+var waqiLayer = L.tileLayer(WAQI_URL, { attribution: WAQI_ATTR });
 
-//Heat Map Example
-var testData = [
-    [19.076, 72.8777, 15],
-    [19.089, 72.865, 40]
-  ]
-
-  L.heatLayer(testData, {
-    radius: 25,
-    blur: 15,
-    maxZoom: 17,
-    gradient: {0.4: 'blue', 0.6: 'lime', 0.8: 'red'}
-  }).addTo(map);
-
-
-// Climate Layer
-var climateLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: 'Climate Data &copy; OpenStreetMap contributors'
-});
-
-// OSM DE Layer (Example using a different tile layer)
+// OSM Climate (DE) Layer (Example using a different tile layer)
 var deLayer = L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
 	maxZoom: 18,
 	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 });
+
+//Heat Map Example
+function initializeMap(){ 
+    var testData = [
+        [19.047, 72.8746, 46],
+        [19.04946, 72.923, 52],
+        [19.0863, 72.8888, 53],
+        [19.10861, 72.83622, 50],
+        [19.10078, 72.87462, 51],
+        [19.11074, 72.86084, 41],
+        [19.1653323, 72.922099, 54],
+        [18.96702, 72.84214, 45],
+        [19.2243333, 72.8658113, 36],
+        [19.1375, 72.915056, 41],
+        [19.2058, 72.8682, 42],
+        [19.175, 72.9419, 42],
+        [19.19709, 72.82204, 94],
+        [18.91, 72.82, 66],
+        [18.9936162, 72.8128113, 85],
+        [19.072830200195, 72.882606506348, 30],
+        [19.192056, 72.9585188, 35],
+        [18.897756, 72.81332, 60]
+    ];
+
+    L.heatLayer(testData, {
+        radius: 50,
+        blur: 45,
+        maxZoom: 17,
+        //gradient: {0.4: 'blue', 0.6: 'lime', 0.8: 'red'}
+    }).addTo(map);
+}
 
 // Satellite layer
 var satelliteLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
@@ -83,9 +95,8 @@ function switchLayer() {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
     } else if (document.getElementById('climate').checked) {
-        climateLayer.addTo(map);
-    } else if (document.getElementById('de').checked) {
         deLayer.addTo(map);
+        initializeMap();
     } else if (document.getElementById('satellite').checked) {
         satelliteLayer.addTo(map); 
     } else if (document.getElementById('dark').checked) {
@@ -97,7 +108,6 @@ function switchLayer() {
 document.getElementById('population').addEventListener('change', switchLayer);
 document.getElementById('pollution').addEventListener('change', switchLayer);
 document.getElementById('climate').addEventListener('change', switchLayer);
-document.getElementById('de').addEventListener('change', switchLayer);
 document.getElementById('satellite').addEventListener('change', switchLayer);
 document.getElementById('dark').addEventListener('change', switchLayer);
 
