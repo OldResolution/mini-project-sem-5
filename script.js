@@ -113,6 +113,7 @@ toggleControl.addEventListener('click', function () {
     }
 });
 
+
 // Fetch air quality data and add invisible markers to the map
 var token = '5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572'; // Replace with your actual token
 
@@ -125,8 +126,34 @@ function fetchAndDisplayMarkers() {
         .then(data => {
             if (data.status === 'ok') {
                 data.data.forEach(station => {
-                    L.marker([station.lat, station.lon], { opacity: 0 }).addTo(map)
-                        .bindPopup(`Station: ${station.station.name}<br>AQI: ${station.aqi}`);
+                    // Fetch detailed station data to get pollutants information
+                    var stationUrl = `https://api.waqi.info/feed/@${station.uid}/?token=${token}`;
+                    
+                    fetch(stationUrl)
+                        .then(response => response.json())
+                        .then(stationData => {
+                            if (stationData.status === 'ok') {
+                                var pollutants = stationData.data.iaqi; // Individual Air Quality Index
+
+                                // Build a popup content with pollutants data
+                                var popupContent = `
+                                    <b>Station:</b> ${station.station.name}<br>
+                                    <b>AQI:</b> ${station.aqi}<br>
+                                    <b>PM2.5:</b> ${pollutants.pm25 ? pollutants.pm25.v : 'N/A'}<br>
+                                    <b>PM10:</b> ${pollutants.pm10 ? pollutants.pm10.v : 'N/A'}<br>
+                                    <b>O3:</b> ${pollutants.o3 ? pollutants.o3.v : 'N/A'}<br>
+                                    <b>NO2:</b> ${pollutants.no2 ? pollutants.no2.v : 'N/A'}<br>
+                                    <b>SO2:</b> ${pollutants.so2 ? pollutants.so2.v : 'N/A'}<br>
+                                    <b>CO:</b> ${pollutants.co ? pollutants.co.v : 'N/A'}
+                                `;
+
+                                L.marker([station.lat, station.lon], { opacity: 0 }).addTo(map)
+                                    .bindPopup(popupContent);
+                            } else {
+                                console.error('Error fetching station data:', stationData);
+                            }
+                        })
+                        .catch(error => console.error('Error fetching station data:', error));
                 });
             } else {
                 console.error('Error fetching data:', data);
@@ -134,6 +161,7 @@ function fetchAndDisplayMarkers() {
         })
         .catch(error => console.error('Error:', error));
 }
+
 
 map.on('moveend', function() {
     if (document.getElementById('pollution').checked) {
