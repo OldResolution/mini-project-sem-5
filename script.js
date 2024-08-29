@@ -64,9 +64,11 @@ function initializeMap(){
 }
 
 // Satellite layer
-var satelliteLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
-    maxZoom: 20,
-    attribution: '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+var satelliteLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.{ext}', {
+	minZoom: 0,
+	maxZoom: 20,
+	attribution: '&copy; CNES, Distribution Airbus DS, © Airbus DS, © PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	ext: 'jpg'
 });
 
 // Dark Layer 
@@ -180,59 +182,110 @@ map.on('moveend', function() {
 });
 fetchAndDisplayMarkers(); // Initial load
 
-let selectedAreaBounds = null; // Global variable to store the selected area bounds
+// Initialize FeatureGroup to store editable layers
+var editableLayers = new L.FeatureGroup();
+map.addLayer(editableLayers);
 
-// Define the selectAreaFeature control
-var selectFeature = map.selectAreaFeature;
-var isFeatureEnabled = false;
-
-// Toggle button functionality
-document.getElementById('toggle-select').onclick = function() {
-    if (isFeatureEnabled) {
-        selectFeature.disable();
-        isFeatureEnabled = false;
-        this.classList.remove("active");
-    } else {
-        selectFeature.enable();
-        isFeatureEnabled = true;
-        this.classList.add("active");
+// Set up draw control options with darker lines
+var drawControl = new L.Control.Draw({
+    position: 'topright',
+    draw: {
+        polyline: {
+            shapeOptions: {
+                color: '#2a2a2a', // Darker line color for polylines
+                weight: 10
+            }
+        },
+        polygon: {
+            allowIntersection: false,
+            drawError: {
+                color: '#e1e100',
+                message: '<strong>Oh snap!<strong> you can\'t draw that!'
+            },
+            shapeOptions: {
+                color: '#2a2a2a' // Darker line color for polygons
+            }
+        },
+        circle: {
+            shapeOptions: {
+                color: '#2a2a2a' // Darker line color for circles
+            }
+        },
+        rectangle: {
+            shapeOptions: {
+                color: '#2a2a2a', // Darker line color for rectangles
+                clickable: false
+            }
+        },
+        marker: true // Default marker icon
+    },
+    edit: {
+        featureGroup: editableLayers,
+        remove: false
     }
-};
-// You can do the same for the clear button if needed
-document.getElementById('clear-selector').onclick = function() {
-    selectFeature.removeAllArea();
-    document.getElementById('toggle-select').classList.remove("active");
-};
-// Capture selected area coordinates
-map.on('areaselected', function (e) {
-    console.log('Area selected event fired'); // This should appear in your console
-    var coordinates = e.bounds.toBBoxString();
-    document.getElementById('selected-coordinates').innerHTML = `Selected Coordinates: ${coordinates}`;
-    console.log('Selected Coordinates:', e.bounds);
-    sendCoordinatesToServer(e.bounds);
 });
 
-// Function to send coordinates to the terminal (or for further processing)
-function sendCoordinatesToServer(bounds) {
-    const boundsData = {
-        northEast: bounds.getNorthEast(),
-        southWest: bounds.getSouthWest()
+// Add draw control to the map
+map.addControl(drawControl);
+
+// Handle the creation of new shapes and retrieve their coordinates
+map.on(L.Draw.Event.CREATED, function (e) {
+    var layer = e.layer;
+    editableLayers.addLayer(layer);
+
+    // Retrieve the exact coordinates
+    if (layer instanceof L.Polygon || layer instanceof L.Polyline) {
+        console.log('Coordinates:', layer.getLatLngs());
+    } else if (layer instanceof L.Circle) {
+        console.log('Center:', layer.getLatLng());
+        console.log('Radius:', layer.getRadius());
+    } else if (layer instanceof L.Marker) {
+        console.log('Marker Coordinates:', layer.getLatLng());
+    }
+});
+
+// Function to remove the last drawing
+function removeLastDrawing() {
+    var layers = editableLayers.getLayers();
+    if (layers.length > 0) {
+        editableLayers.removeLayer(layers[layers.length - 1]);
+    }
+}
+
+// Function to remove all drawings
+function removeAllDrawings() {
+    editableLayers.clearLayers();
+}
+
+// Create buttons and add them to the map
+var removeLastButton = L.control({ position: 'topleft' });
+removeLastButton.onAdd = function(map) {
+    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    div.innerHTML = '<button title="Remove Last Drawing">Remove Last</button>';
+    div.style.backgroundColor = 'white';
+    div.style.padding = '5px';
+    div.style.cursor = 'pointer';
+
+    div.onclick = function() {
+        removeLastDrawing();
     };
 
-    console.log('Sending Coordinates to Server:', boundsData);
+    return div;
+};
+removeLastButton.addTo(map);
 
-    fetch('https://your-server-endpoint.example.com/process-coordinates', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(boundsData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Server Response:', data);
-    })
-    .catch(error => {
-        console.error('Error sending coordinates to server:', error);
-    });
-}
+var removeAllButton = L.control({ position: 'topleft' });
+removeAllButton.onAdd = function(map) {
+    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    div.innerHTML = '<button title="Remove All Drawings">Remove All</button>';
+    div.style.backgroundColor = 'white';
+    div.style.padding = '5px';
+    div.style.cursor = 'pointer';
+
+    div.onclick = function() {
+        removeAllDrawings();
+    };
+
+    return div;
+};
+removeAllButton.addTo(map);
