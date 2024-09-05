@@ -1,5 +1,5 @@
 // Initialize the map centered on Mumbai
-var map = L.map('map', {
+const map = L.map('map', {
     center: [19.0760, 72.8777],
     zoom: 13,
     minZoom: 12,
@@ -12,25 +12,28 @@ var map = L.map('map', {
 });
 
 // Add base tile layer
-var baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+const baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
 // Population Layer
-var populationLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+const populationLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: 'Population Data &copy; OpenStreetMap contributors'
 });
 
 // WAQI Pollution Layer
-var WAQI_URL = "https://tiles.waqi.info/tiles/usepa-aqi/{z}/{x}/{y}.png?token=5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572";
-var WAQI_ATTR = 'Air Quality Tiles &copy; <a href="http://waqi.info">waqi.info</a>';
-var waqiLayer = L.tileLayer(WAQI_URL, { attribution: WAQI_ATTR });
+const WAQI_URL = "https://tiles.waqi.info/tiles/usepa-aqi/{z}/{x}/{y}.png?token=5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572";
+const WAQI_ATTR = 'Air Quality Tiles &copy; <a href="http://waqi.info">waqi.info</a>';
+const waqiLayer = L.tileLayer(WAQI_URL, { attribution: WAQI_ATTR });
 
 // OSM Climate (DE) Layer (Example using a different tile layer)
-var deLayer = L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
-	maxZoom: 18,
-	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+const climateLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.{ext}', {
+	minZoom: 0,
+	maxZoom: 20,
+	attribution: '&copy; CNES, Distribution Airbus DS, © Airbus DS, © PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	ext: 'jpg'
 });
+
 // OpenWeatherMap API key (replace with your own key)
 const apiKey = '80292c7c9a0e2548d796c7b98b739b03'; // Your OpenWeatherMap API key
 
@@ -76,7 +79,7 @@ async function populateHeatmap() {
         [18.897756, 72.81332]
     ];
 
-    let heatmapData = [];
+    const heatmapData = [];
 
     for (const [lat, lon] of coordinates) {
         const weather = await fetchWeatherData(lat, lon);
@@ -96,16 +99,8 @@ async function populateHeatmap() {
     }
 }
 
-// Satellite layer
-var satelliteLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.{ext}', {
-	minZoom: 0,
-	maxZoom: 20,
-	attribution: '&copy; CNES, Distribution Airbus DS, © Airbus DS, © PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-	ext: 'jpg'
-});
-
 // Dark Layer 
-var darkLayer = L.tileLayer('https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.png?access-token=V2sjOIE1X0a8eylOLVh2T5KsxwTLmusfEXqGlpImHRkjATJAH2rYw9ACYCLjo4bd', {
+const darkLayer = L.tileLayer('https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.png?access-token=V2sjOIE1X0a8eylOLVh2T5KsxwTLmusfEXqGlpImHRkjATJAH2rYw9ACYCLjo4bd', {
 	attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; <b>Jawg</b>Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 	minZoom: 0,
 	maxZoom: 22,
@@ -126,15 +121,14 @@ function switchLayer() {
 
     if (document.getElementById('population').checked) {
         populationLayer.addTo(map);
+        map.addControl(searchControl);
     } else if (document.getElementById('pollution').checked) {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
     } else if (document.getElementById('climate').checked) {
-        deLayer.addTo(map);
+        climateLayer.addTo(map);
         populateHeatmap();
         initializeMap();
-    } else if (document.getElementById('satellite').checked) {
-        satelliteLayer.addTo(map); 
     } else if (document.getElementById('dark').checked) {
         darkLayer.addTo(map);
 }
@@ -144,12 +138,11 @@ function switchLayer() {
 document.getElementById('population').addEventListener('change', switchLayer);
 document.getElementById('pollution').addEventListener('change', switchLayer);
 document.getElementById('climate').addEventListener('change', switchLayer);
-document.getElementById('satellite').addEventListener('change', switchLayer);
 document.getElementById('dark').addEventListener('change', switchLayer);
 
 // Toggle content visibility
-var toggleControl = document.querySelector('.custom-control h3');
-var content = document.querySelector('.custom-control .content');
+const toggleControl = document.querySelector('.custom-control h3');
+const content = document.querySelector('.custom-control .content');
 
 toggleControl.addEventListener('click', function () {
     if (content.style.display === 'none' || content.style.display === '') {
@@ -161,11 +154,11 @@ toggleControl.addEventListener('click', function () {
 
 
 // Fetch air quality data and add invisible markers to the map
-var token = '5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572'; // Replace with your actual token
+const token = '5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572'; // Replace with your actual token
 
 function fetchAndDisplayMarkers() {
-    var bounds = map.getBounds();
-    var url = `https://api.waqi.info/map/bounds/?token=${token}&latlng=${bounds.getSouthWest().lat},${bounds.getSouthWest().lng},${bounds.getNorthEast().lat},${bounds.getNorthEast().lng}`;
+    const bounds = map.getBounds();
+    const url = `https://api.waqi.info/map/bounds/?token=${token}&latlng=${bounds.getSouthWest().lat},${bounds.getSouthWest().lng},${bounds.getNorthEast().lat},${bounds.getNorthEast().lng}`;
 
     fetch(url)
         .then(response => response.json())
@@ -173,16 +166,16 @@ function fetchAndDisplayMarkers() {
             if (data.status === 'ok') {
                 data.data.forEach(station => {
                     // Fetch detailed station data to get pollutants information
-                    var stationUrl = `https://api.waqi.info/feed/@${station.uid}/?token=${token}`;
+                    const stationUrl = `https://api.waqi.info/feed/@${station.uid}/?token=${token}`;
 
                     fetch(stationUrl)
                         .then(response => response.json())
                         .then(stationData => {
                             if (stationData.status === 'ok') {
-                                var pollutants = stationData.data.iaqi; // Individual Air Quality Index
+                                const pollutants = stationData.data.iaqi; // Individual Air Quality Index
 
                                 // Build a popup content with pollutants data
-                                var popupContent = `
+                                const popupContent = `
                                     <b>Station:</b> ${station.station.name}<br>
                                     <b>AQI:</b> ${station.aqi}<br>
                                     <b>PM2.5:</b> ${pollutants.pm25 ? pollutants.pm25.v : 'N/A'}<br>
@@ -217,11 +210,11 @@ map.on('moveend', function() {
 fetchAndDisplayMarkers(); // Initial load
 
 // Initialize FeatureGroup to store editable layers
-var editableLayers = new L.FeatureGroup();
+const editableLayers = new L.FeatureGroup();
 map.addLayer(editableLayers);
 
 // Set up draw control options with darker lines
-var drawControl = new L.Control.Draw({
+const drawControl = new L.Control.Draw({
     position: 'topright',
     draw: {
         polyline: {
@@ -264,7 +257,7 @@ map.addControl(drawControl);
 
 // Handle the creation of new shapes and retrieve their coordinates
 map.on(L.Draw.Event.CREATED, function (e) {
-    var layer = e.layer;
+    const layer = e.layer;
     editableLayers.addLayer(layer);
 
     // Retrieve the exact coordinates
@@ -280,7 +273,7 @@ map.on(L.Draw.Event.CREATED, function (e) {
 
 // Function to remove the last drawing
 function removeLastDrawing() {
-    var layers = editableLayers.getLayers();
+    const layers = editableLayers.getLayers();
     if (layers.length > 0) {
         editableLayers.removeLayer(layers[layers.length - 1]);
     }
@@ -292,9 +285,9 @@ function removeAllDrawings() {
 }
 
 // Create buttons and add them to the map
-var removeLastButton = L.control({ position: 'topleft' });
+const removeLastButton = L.control({ position: 'topleft' });
 removeLastButton.onAdd = function(map) {
-    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    const div = L.DomUtil.create('div', 'leafconst-bar leafconst-control leafconst-control-custom');
     div.innerHTML = '<button title="Remove Last Drawing">Remove Last</button>';
     div.style.backgroundColor = 'white';
     div.style.padding = '5px';
@@ -308,9 +301,9 @@ removeLastButton.onAdd = function(map) {
 };
 removeLastButton.addTo(map);
 
-var removeAllButton = L.control({ position: 'topleft' });
+const removeAllButton = L.control({ position: 'topleft' });
 removeAllButton.onAdd = function(map) {
-    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    const div = L.DomUtil.create('div', 'leafconst-bar leafconst-control leafconst-control-custom');
     div.innerHTML = '<button title="Remove All Drawings">Remove All</button>';
     div.style.backgroundColor = 'white';
     div.style.padding = '5px';
@@ -323,3 +316,53 @@ removeAllButton.onAdd = function(map) {
     return div;
 };
 removeAllButton.addTo(map);
+
+// Autocomplete configuration
+new Autocomplete("search", {
+    selectFirst: true,
+    howManyCharacters: 2,
+    onSearch: ({ currentValue }) => {
+        const api = `https://nominatim.openstreetmap.org/search?format=geojson&limit=5&city=${encodeURIComponent(currentValue)}`;
+        return new Promise((resolve) => {
+            fetch(api)
+                .then(response => response.json())
+                .then(data => resolve(data.features))
+                .catch(error => console.error(error));
+        });
+    },
+    onResults: ({ currentValue, matches, template }) => {
+        return matches === 0
+            ? template(`<li>No results found: "${currentValue}"</li>`)
+            : matches.map(element => {
+                return `
+                    <li>
+                        <p>${element.properties.display_name.replace(
+                            new RegExp(currentValue, "gi"),
+                            match => `<b>${match}</b>`
+                        )}</p>
+                    </li>`;
+            }).join("");
+    },
+    onSubmit: ({ object }) => {
+        const { display_name } = object.properties;
+        const [lng, lat] = object.geometry.coordinates;
+
+        // Remove previous layers
+        map.eachLayer(layer => {
+            if (!!layer.toGeoJSON) {
+                map.removeLayer(layer);
+            }
+        });
+
+        // Add a marker at the selected location
+        const marker = L.marker([lat, lng], {
+            title: display_name
+        }).addTo(map)
+          .bindPopup(display_name)
+          .openPopup();
+
+        // Zoom to the selected location
+        map.setView([lat, lng], 12);
+    },
+    noResults: ({ currentValue, template }) => template(`<li>No results found for "${currentValue}"</li>`)
+});
