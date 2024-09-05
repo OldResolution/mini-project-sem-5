@@ -31,36 +31,69 @@ var deLayer = L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
 	maxZoom: 18,
 	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 });
+// OpenWeatherMap API key (replace with your own key)
+const apiKey = '80292c7c9a0e2548d796c7b98b739b03'; // Your OpenWeatherMap API key
 
-//Heat Map Example
-function initializeMap(){ 
-    var testData = [
-        [19.047, 72.8746, 46],
-        [19.04946, 72.923, 52],
-        [19.0863, 72.8888, 53],
-        [19.10861, 72.83622, 50],
-        [19.10078, 72.87462, 51],
-        [19.11074, 72.86084, 41],
-        [19.1653323, 72.922099, 54],
-        [18.96702, 72.84214, 45],
-        [19.2243333, 72.8658113, 36],
-        [19.1375, 72.915056, 41],
-        [19.2058, 72.8682, 42],
-        [19.175, 72.9419, 42],
-        [19.19709, 72.82204, 94],
-        [18.91, 72.82, 66],
-        [18.9936162, 72.8128113, 85],
-        [19.072830200195, 72.882606506348, 30],
-        [19.192056, 72.9585188, 35],
-        [18.897756, 72.81332, 60]
+// Fetch weather data for different locations
+async function fetchWeatherData(lat, lon) {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+    
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Error fetching weather data: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const temperature = data.main ? data.main.temp : null; // Get temperature in Celsius
+        return { lat, lon, temperature };
+    } catch (error) {
+        console.error('Error fetching weather data:', error);
+        return null;
+    }
+}
+
+// Populate heatmap data from weather API
+async function populateHeatmap() {
+    const coordinates = [
+        [19.047, 72.8746],
+        [19.04946, 72.923],
+        [19.0863, 72.8888],
+        [19.10861, 72.83622],
+        [19.10078, 72.87462],
+        [19.11074, 72.86084],
+        [19.1653323, 72.922099],
+        [18.96702, 72.84214],
+        [19.2243333, 72.8658113],
+        [19.1375, 72.915056],
+        [19.2058, 72.8682],
+        [19.175, 72.9419],
+        [19.19709, 72.82204],
+        [18.91, 72.82],
+        [18.9936162, 72.8128113],
+        [19.072830200195, 72.882606506348],
+        [19.192056, 72.9585188],
+        [18.897756, 72.81332]
     ];
 
-    L.heatLayer(testData, {
-        radius: 50,
-        blur: 45,
-        maxZoom: 17,
-        //gradient: {0.4: 'blue', 0.6: 'lime', 0.8: 'red'}
-    }).addTo(map);
+    let heatmapData = [];
+
+    for (const [lat, lon] of coordinates) {
+        const weather = await fetchWeatherData(lat, lon);
+        if (weather && weather.temperature !== null) {
+            heatmapData.push([weather.lat, weather.lon, weather.temperature]);
+        }
+    }
+
+    if (heatmapData.length > 0) {
+        L.heatLayer(heatmapData, {
+            radius: 50,
+            blur: 45,
+            maxZoom: 17,
+        }).addTo(map);
+    } else {
+        console.error("No data available for heatmap.");
+    }
 }
 
 // Satellite layer
@@ -98,6 +131,7 @@ function switchLayer() {
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
     } else if (document.getElementById('climate').checked) {
         deLayer.addTo(map);
+        populateHeatmap();
         initializeMap();
     } else if (document.getElementById('satellite').checked) {
         satelliteLayer.addTo(map); 
@@ -140,7 +174,7 @@ function fetchAndDisplayMarkers() {
                 data.data.forEach(station => {
                     // Fetch detailed station data to get pollutants information
                     var stationUrl = `https://api.waqi.info/feed/@${station.uid}/?token=${token}`;
-                    
+
                     fetch(stationUrl)
                         .then(response => response.json())
                         .then(stationData => {
