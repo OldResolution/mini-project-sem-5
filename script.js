@@ -121,7 +121,7 @@ function switchLayer() {
 
     if (document.getElementById('population').checked) {
         populationLayer.addTo(map);
-        map.addControl(searchControl);
+        plotClusters(populationData);
     } else if (document.getElementById('pollution').checked) {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
@@ -316,3 +316,76 @@ removeAllButton.onAdd = function(map) {
     return div;
 };
 removeAllButton.addTo(map);
+
+//population map working
+
+// Population Data Parsing and Plotting
+let populationData = []; // Declare populationData globally
+
+// Use PapaParse to load and parse the CSV file
+Papa.parse('data/Population_Density_Scaled_2011_2022.csv', {
+    download: true,
+    header: true,
+    complete: function(results) {
+        // Parse and extract the relevant data
+        populationData = extractPopulationData(results.data); // Save to global variable
+        
+        console.log(populationData); // Check the parsed data
+        if (document.getElementById('population').checked) {
+            plotClusters(populationData); // Call function to plot clusters on map if population layer is active
+        }
+    }
+});
+
+// Function to extract population data from CSV
+function extractPopulationData(data) {
+    return data.map(row => {
+        const lat = parseFloat(row['Latitude']);
+        const lng = parseFloat(row['Longitude']);
+
+        if (!isNaN(lat) && !isNaN(lng)) {
+            return {
+                name: row['Area Name'],
+                population: parseFloat(row['Population 2001']) || 0, // Ensure population is a number
+                density: parseFloat(row['Density per Square Kilometer']) || 0, // Ensure density is a number
+                lat: lat,
+                lng: lng
+            };
+        } else {
+            return null; // Exclude invalid entries
+        }
+    }).filter(row => row !== null); // Filter out invalid entries
+}
+
+// Plot clusters on the population map
+function plotClusters(populationData) {
+    var markers = L.markerClusterGroup();
+
+    populationData.forEach(function(item) {
+        if (!isNaN(item.lat) && !isNaN(item.lng)) { // Check if lat and lng are valid
+            var color = getColor(item.density);
+            var marker = L.circleMarker([item.lat, item.lng], {
+                radius: 8,
+                fillColor: color,
+                color: "#000",
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).bindPopup(`<strong>${item.name}</strong><br>Population: ${item.population}<br>Density: ${item.density}`);
+            
+            markers.addLayer(marker);
+        }
+    });
+
+    map.addLayer(markers); // Add markers to the map
+}
+
+// Get color based on population density
+function getColor(density) {
+    if (density > 1000) return '#FF0000'; // Red for high density
+    else if (density > 500) return '#FF9900'; // Orange for medium density
+    else return '#00FF00'; // Green for low density
+}
+
+// Add the necessary event listener for population layer switching
+document.getElementById('population').addEventListener('change', switchLayer);
