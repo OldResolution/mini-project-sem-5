@@ -107,6 +107,29 @@ const darkLayer = L.tileLayer('https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.p
 	accessToken: 'V2sjOIE1X0a8eylOLVh2T5KsxwTLmusfEXqGlpImHRkjATJAH2rYw9ACYCLjo4bd'
 });
 
+// Load wardmap data
+let wardLayer;
+
+fetch('data/WardMap.geojson')
+    .then(response => response.json())
+    .then(geojsonData => {
+        // Initialize the GeoJSON layer but don't add it to the map
+        wardLayer = L.geoJSON(geojsonData, {
+            style: function (feature) {
+                return {
+                    color: "#ff7800",
+                    weight: 2,
+                    opacity: 1
+                };
+            },
+            onEachFeature: function (feature, layer) {
+                console.log(feature.properties);  // Log the properties to check the structure
+                let wardName = (feature.properties.NAME || "Unidentified Ward").trim();
+                layer.bindPopup("<b>Ward: </b>" + wardName);
+            }
+        }).addTo(map);  // Add to map
+    });
+
 // Add a marker for CSMT with a popup
 L.marker([18.9398, 72.8355]).addTo(map)
     .bindPopup('Chhatrapati Shivaji Maharaj Terminus (CSMT).<br> A historic railway station in Mumbai.')
@@ -114,31 +137,37 @@ L.marker([18.9398, 72.8355]).addTo(map)
 
 function switchLayer() {
     map.eachLayer(function (layer) {
-        if (layer !== baseLayer) {
+        if (layer !== baseLayer && layer !== editableLayers) {
             map.removeLayer(layer);
         }
     });
 
     if (document.getElementById('population').checked) {
         populationLayer.addTo(map);
-        plotClusters(populationData);
+        plotClusters(populationData);   
     } else if (document.getElementById('pollution').checked) {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
     } else if (document.getElementById('climate').checked) {
         climateLayer.addTo(map);
         populateHeatmap();
-        initializeMap();
+        initializeMap();    
     } else if (document.getElementById('dark').checked) {
-        darkLayer.addTo(map);
-}
+        darkLayer.addTo(map)    ;
+    }
+    if (document.getElementById('ward').checked) {
+        map.addLayer(wardLayer);
+    }
 
+    map.addLayer(editableLayers);
 }
 
 document.getElementById('population').addEventListener('change', switchLayer);
 document.getElementById('pollution').addEventListener('change', switchLayer);
 document.getElementById('climate').addEventListener('change', switchLayer);
 document.getElementById('dark').addEventListener('change', switchLayer);
+document.getElementById('ward').addEventListener('change', switchLayer);
+
 
 // Toggle content visibility
 const toggleControl = document.querySelector('.custom-control h3');
@@ -230,7 +259,7 @@ const drawControl = new L.Control.Draw({
                 message: '<strong>Oh snap!<strong> you can\'t draw that!'
             },
             shapeOptions: {
-                color: '#2a2a2a' // Darker line color for polygons
+                color: '#2a2a2a'     // Darker line color for polygons
             }
         },
         circle: {
@@ -387,5 +416,3 @@ function getColor(density) {
     else return '#00FF00'; // Green for low density
 }
 
-// Add the necessary event listener for population layer switching
-document.getElementById('population').addEventListener('change', switchLayer);

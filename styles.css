@@ -32,19 +32,3 @@ body {
 .custom-control input[type="radio"] {
     margin-right: 5px;
 }
-/* Search input styling */
-.auto-search-wrapper {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 1000;
-    width: 300px;
-}
-
-.auto-search-wrapper input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 16px;
-}
