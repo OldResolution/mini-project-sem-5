@@ -6,14 +6,14 @@ const map = L.map('map', {
     maxZoom: 18,
     maxBounds: [
         [18.89, 72.75], // Southwest corner
-        [19.23, 73.0]   // Northeast corner
+        [19.27, 73.0]   // Northeast corner
     ],
     maxBoundsViscosity: 1.0
 });
 
 // Add base tile layer
 const baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
 // Population Layer
@@ -109,25 +109,24 @@ const darkLayer = L.tileLayer('https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.p
 
 // Load wardmap data
 let wardLayer;
-
+// Load ward map data and store it in wardLayer
 fetch('data/WardMap.geojson')
     .then(response => response.json())
     .then(geojsonData => {
-        // Initialize the GeoJSON layer but don't add it to the map
+        // Initialize the GeoJSON layer
         wardLayer = L.geoJSON(geojsonData, {
             style: function (feature) {
                 return {
-                    color: "#ff7800",
-                    weight: 2,
-                    opacity: 1
+                    color: "#ff0000",
+                    weight: 1,
+                    fillOpacity: 0.2
                 };
             },
             onEachFeature: function (feature, layer) {
-                console.log(feature.properties);  // Log the properties to check the structure
                 let wardName = (feature.properties.NAME || "Unidentified Ward").trim();
                 layer.bindPopup("<b>Ward: </b>" + wardName);
             }
-        }).addTo(map);  // Add to map
+        });
     });
 
 // Add a marker for CSMT with a popup
@@ -145,20 +144,19 @@ function switchLayer() {
     if (document.getElementById('population').checked) {
         populationLayer.addTo(map);
         plotClusters(populationData);   
+        map.addLayer(wardLayer);
     } else if (document.getElementById('pollution').checked) {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
+        map.addLayer(wardLayer);
     } else if (document.getElementById('climate').checked) {
         climateLayer.addTo(map);
         populateHeatmap();
-        initializeMap();    
+        map.addLayer(wardLayer);
     } else if (document.getElementById('dark').checked) {
-        darkLayer.addTo(map)    ;
-    }
-    if (document.getElementById('ward').checked) {
+        darkLayer.addTo(map);
         map.addLayer(wardLayer);
     }
-
     map.addLayer(editableLayers);
 }
 
@@ -166,8 +164,6 @@ document.getElementById('population').addEventListener('change', switchLayer);
 document.getElementById('pollution').addEventListener('change', switchLayer);
 document.getElementById('climate').addEventListener('change', switchLayer);
 document.getElementById('dark').addEventListener('change', switchLayer);
-document.getElementById('ward').addEventListener('change', switchLayer);
-
 
 // Toggle content visibility
 const toggleControl = document.querySelector('.custom-control h3');
@@ -374,7 +370,7 @@ function extractPopulationData(data) {
 
         if (!isNaN(lat) && !isNaN(lng)) {
             return {
-                name: row['Area Name'],
+                name: row['Ward'],
                 population: parseFloat(row['Population 2001']) || 0, // Ensure population is a number
                 density: parseFloat(row['Density per Square Kilometer']) || 0, // Ensure density is a number
                 lat: lat,
@@ -393,26 +389,62 @@ function plotClusters(populationData) {
     populationData.forEach(function(item) {
         if (!isNaN(item.lat) && !isNaN(item.lng)) { // Check if lat and lng are valid
             var color = getColor(item.density);
-            var marker = L.circleMarker([item.lat, item.lng], {
-                radius: 8,
-                fillColor: color,
-                color: "#000",
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8
-            }).bindPopup(`<strong>${item.name}</strong><br>Population: ${item.population}<br>Density: ${item.density}`);
-            
-            markers.addLayer(marker);
+
+            // Generate random points based on population
+            let numPoints = Math.floor(item.population / 100); // Scale random points (1 point per 100 people)
+
+            if (numPoints > 0) {
+                // Find the corresponding ward polygon from GeoJSON by matching the ward name
+                let wardPolygon = findWardPolygon(item.name, wardLayer);
+
+                if (wardPolygon && wardPolygon.coordinates && wardPolygon.coordinates.length > 0) {
+                    // Only proceed if valid polygon data is present
+                    let randomPoints = turf.randomPoint(numPoints, { bbox: turf.bbox(wardPolygon) });
+                
+                    randomPoints.features.forEach(function (point) {
+                        let latLng = [point.geometry.coordinates[1], point.geometry.coordinates[0]];
+                
+                        // Ensure the random point is within the polygon
+                        if (turf.booleanPointInPolygon(point, wardPolygon)) {
+                            var marker = L.circleMarker(latLng, {
+                                radius: 5, // Adjust marker size
+                                fillColor: color,
+                                color: "#000",
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            }).bindPopup(`<strong>${item.name}</strong><br>Population: ${item.population}<br>Density: ${item.density}`);
+                            
+                            markers.addLayer(marker);
+                        }
+                    });                
+                } else {
+                    console.warn(`Ward polygon not found for ${item.name}`);
+                }
+            }
         }
     });
 
     map.addLayer(markers); // Add markers to the map
 }
 
+function findWardPolygon(wardName, wardLayer) {
+    let polygon = null;
+
+    // Loop through GeoJSON layers and find the matching ward
+    wardLayer.eachLayer(function(layer) {
+        const geoWardName = (layer.feature.properties.NAME || "").trim().toLowerCase();
+        
+        if (geoWardName === wardName.trim().toLowerCase()) {
+            polygon = layer.feature.geometry; // Extract the polygon geometry
+        }
+    });
+
+    return polygon;
+}
 // Get color based on population density
 function getColor(density) {
     if (density > 1000) return '#FF0000'; // Red for high density
     else if (density > 500) return '#FF9900'; // Orange for medium density
     else return '#00FF00'; // Green for low density
 }
-
