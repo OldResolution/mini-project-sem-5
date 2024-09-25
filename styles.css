@@ -32,3 +32,16 @@ body {
 .custom-control input[type="radio"] {
     margin-right: 5px;
 }
+#timeSliderContainer {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background-color: white;
+    padding: 10px;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+#timeSlider {
+    width: 150px;
+}

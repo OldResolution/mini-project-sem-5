@@ -134,32 +134,47 @@ L.marker([18.9398, 72.8355]).addTo(map)
     .bindPopup('Chhatrapati Shivaji Maharaj Terminus (CSMT).<br> A historic railway station in Mumbai.')
     .openPopup();
 
+// Get the time slider element
+const timeSlider = document.getElementById('timeSliderContainer'); // Assuming 'timeSliderContainer' is the parent div of the slider
+const selectedYearLabel = document.getElementById('selectedYear');
+
+// Hide the time slider by default
+timeSlider.style.display = 'none'; 
+selectedYearLabel.style.display = 'none'; 
+
 function switchLayer() {
     map.eachLayer(function (layer) {
         if (layer !== baseLayer && layer !== editableLayers) {
             map.removeLayer(layer);
         }
     });
-
-    if (document.getElementById('population').checked) {
-        populationLayer.addTo(map);
-        plotClusters(populationData);   
-        map.addLayer(wardLayer);
-    } else if (document.getElementById('pollution').checked) {
-        waqiLayer.addTo(map);
-        fetchAndDisplayMarkers(); // Fetch and display pollution markers
-        map.addLayer(wardLayer);
-    } else if (document.getElementById('climate').checked) {
-        climateLayer.addTo(map);
-        populateHeatmap();
-        map.addLayer(wardLayer);
-    } else if (document.getElementById('dark').checked) {
-        darkLayer.addTo(map);
-        map.addLayer(wardLayer);
-    }
-    map.addLayer(editableLayers);
+// Check which layer is selected
+if (document.getElementById('population').checked) {
+    populationLayer.addTo(map);
+    plotClusters(populationData);   
+    map.addLayer(wardLayer);
+    
+    // Show the time slider when the population layer is selected
+    timeSlider.style.display = 'block'; 
+    selectedYearLabel.style.display = 'block'; 
+} else if (document.getElementById('pollution').checked) {
+    waqiLayer.addTo(map);
+    fetchAndDisplayMarkers(); // Fetch and display pollution markers
+    map.addLayer(wardLayer);
+} else if (document.getElementById('climate').checked) {
+    climateLayer.addTo(map);
+    populateHeatmap();
+    map.addLayer(wardLayer);
+} else if (document.getElementById('dark').checked) {
+    darkLayer.addTo(map);
+    map.addLayer(wardLayer);
 }
 
+// Always add editableLayers back
+map.addLayer(editableLayers);
+}
+
+// Add event listeners to switch between layers
 document.getElementById('population').addEventListener('change', switchLayer);
 document.getElementById('pollution').addEventListener('change', switchLayer);
 document.getElementById('climate').addEventListener('change', switchLayer);
@@ -356,13 +371,15 @@ Papa.parse('data/Population_Density_Scaled_2011_2022.csv', {
         populationData = extractPopulationData(results.data); // Save to global variable
         
         console.log(populationData); // Check the parsed data
+        
         if (document.getElementById('population').checked) {
-            plotClusters(populationData); // Call function to plot clusters on map if population layer is active
+            plotClusters(populationData, 2001); // Call function to plot clusters on map for the default year
         }
     }
 });
 
-// Function to extract population data from CSV
+
+//Extend the extractPopulationData to handle different years
 function extractPopulationData(data) {
     return data.map(row => {
         const lat = parseFloat(row['Latitude']);
@@ -371,8 +388,12 @@ function extractPopulationData(data) {
         if (!isNaN(lat) && !isNaN(lng)) {
             return {
                 name: row['Ward'],
-                population: parseFloat(row['Population 2001']) || 0, // Ensure population is a number
-                density: parseFloat(row['Density per Square Kilometer']) || 0, // Ensure density is a number
+                population2001: parseFloat(row['Population 2001']) || 0, // Population for 2001
+                population2011: parseFloat(row['Population 2011']) || 0, // Population for 2011
+                population2022: parseFloat(row['Population 2022']) || 0, // Population for 2022
+                density2001: parseFloat(row['Density 2001']) || 0, // Density for 2001
+                density2011: parseFloat(row['Density 2011']) || 0, // Density for 2011
+                density2022: parseFloat(row['Density 2022']) || 0, // Density for 2022
                 lat: lat,
                 lng: lng
             };
@@ -382,51 +403,81 @@ function extractPopulationData(data) {
     }).filter(row => row !== null); // Filter out invalid entries
 }
 
-// Plot clusters on the population map
-function plotClusters(populationData) {
-    var markers = L.markerClusterGroup();
+// Update the plotClusters function to handle population and density based on the selected year
+function plotClusters(populationData, selectedYear) {
+    const markers = L.markerClusterGroup();
 
     populationData.forEach(function(item) {
-        if (!isNaN(item.lat) && !isNaN(item.lng)) { // Check if lat and lng are valid
-            var color = getColor(item.density);
+        if (!isNaN(item.lat) && !isNaN(item.lng)) {
+            let population = 0;
+            let density = 0;
 
-            // Generate random points based on population
-            let numPoints = Math.floor(item.population / 100); // Scale random points (1 point per 100 people)
+            // Determine population and density based on the selected year
+            if (selectedYear === 2001) {
+                population = item.population2001;
+                density = item.density2001;
+            } else if (selectedYear === 2011) {
+                population = item.population2011;
+                density = item.density2011;
+            } else if (selectedYear === 2022) {
+                population = item.population2022;
+                density = item.density2022;
+            }
+
+            // Update color based on density
+            const color = getColor(density);
+
+            let numPoints = Math.min(Math.floor(population / 500)); // A single point is 1000 people
 
             if (numPoints > 0) {
-                // Find the corresponding ward polygon from GeoJSON by matching the ward name
                 let wardPolygon = findWardPolygon(item.name, wardLayer);
 
-                if (wardPolygon && wardPolygon.coordinates && wardPolygon.coordinates.length > 0) {
-                    // Only proceed if valid polygon data is present
+                if (wardPolygon?.coordinates?.length > 0) {
                     let randomPoints = turf.randomPoint(numPoints, { bbox: turf.bbox(wardPolygon) });
-                
-                    randomPoints.features.forEach(function (point) {
+
+                    randomPoints.features.forEach(function(point) {
                         let latLng = [point.geometry.coordinates[1], point.geometry.coordinates[0]];
-                
-                        // Ensure the random point is within the polygon
+
                         if (turf.booleanPointInPolygon(point, wardPolygon)) {
-                            var marker = L.circleMarker(latLng, {
-                                radius: 5, // Adjust marker size
+                            const marker = L.circleMarker(latLng, {
+                                radius: 5,
                                 fillColor: color,
                                 color: "#000",
                                 weight: 1,
                                 opacity: 1,
                                 fillOpacity: 0.8
-                            }).bindPopup(`<strong>${item.name}</strong><br>Population: ${item.population}<br>Density: ${item.density}`);
-                            
+                            }).bindPopup(`<strong>${item.name}</strong><br>Population: ${population}<br>Density: ${density}`);
+
                             markers.addLayer(marker);
                         }
-                    });                
-                } else {
-                    console.warn(`Ward polygon not found for ${item.name}`);
+                    });
                 }
             }
         }
     });
 
     map.addLayer(markers); // Add markers to the map
+    return markers; // Return the marker cluster group so it can be removed later
 }
+
+// Handle slider changes and update the map
+let currentMarkers = null; // Declare a global variable to store the marker layer
+
+document.getElementById('timeSlider').addEventListener('input', function(event) {
+    const selectedYear = parseInt(event.target.value);
+    document.getElementById('selectedYear').innerText = selectedYear;
+
+    // Remove the current markers (only if they exist)
+    if (currentMarkers) {
+        map.removeLayer(currentMarkers);
+    }
+
+    // Plot clusters for the new selected year
+    currentMarkers = plotClusters(populationData, selectedYear);
+});
+
+// Initialize the map with the default year
+plotClusters(populationData, 2001); // Default to the year 2001
 
 function findWardPolygon(wardName, wardLayer) {
     let polygon = null;
@@ -442,9 +493,12 @@ function findWardPolygon(wardName, wardLayer) {
 
     return polygon;
 }
+
 // Get color based on population density
 function getColor(density) {
-    if (density > 1000) return '#FF0000'; // Red for high density
+    if (density > 2000) return '#FF0000'; // Red for very high density
+    else if (density > 1000) return '#FF6600'; // Orange-red for high density
     else if (density > 500) return '#FF9900'; // Orange for medium density
-    else return '#00FF00'; // Green for low density
+    else if (density > 100) return '#FFFF00'; // Yellow for low density
+    else return '#00FF00'; // Green for very low density
 }
