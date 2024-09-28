@@ -134,44 +134,37 @@ L.marker([18.9398, 72.8355]).addTo(map)
     .bindPopup('Chhatrapati Shivaji Maharaj Terminus (CSMT).<br> A historic railway station in Mumbai.')
     .openPopup();
 
-// Get the time slider element
-const timeSlider = document.getElementById('timeSliderContainer'); // Assuming 'timeSliderContainer' is the parent div of the slider
-const selectedYearLabel = document.getElementById('selectedYear');
-
-// Hide the time slider by default
-timeSlider.style.display = 'none'; 
-selectedYearLabel.style.display = 'none'; 
-
+// Update the switchLayer function to display the year-switch button only when population layer is active
 function switchLayer() {
-    map.eachLayer(function (layer) {
+    map.eachLayer(function(layer) {
         if (layer !== baseLayer && layer !== editableLayers) {
             map.removeLayer(layer);
         }
     });
-// Check which layer is selected
-if (document.getElementById('population').checked) {
-    populationLayer.addTo(map);
-    plotClusters(populationData);   
-    map.addLayer(wardLayer);
-    
-    // Show the time slider when the population layer is selected
-    timeSlider.style.display = 'block'; 
-    selectedYearLabel.style.display = 'block'; 
-} else if (document.getElementById('pollution').checked) {
-    waqiLayer.addTo(map);
-    fetchAndDisplayMarkers(); // Fetch and display pollution markers
-    map.addLayer(wardLayer);
-} else if (document.getElementById('climate').checked) {
-    climateLayer.addTo(map);
-    populateHeatmap();
-    map.addLayer(wardLayer);
-} else if (document.getElementById('dark').checked) {
-    darkLayer.addTo(map);
-    map.addLayer(wardLayer);
-}
 
-// Always add editableLayers back
-map.addLayer(editableLayers);
+    // Check which layer is selected
+    if (document.getElementById('population').checked) {
+        populationLayer.addTo(map);
+        map.addLayer(wardLayer);
+        plotClusters(populationData, years[currentYearIndex]); // Plot for the current year
+        map.addControl(yearSwitchControl);
+    } else if (document.getElementById('pollution').checked) {
+        waqiLayer.addTo(map);
+        fetchAndDisplayMarkers(); // Fetch and display pollution markers
+        map.addLayer(wardLayer);
+        switchYearButton.style.display = 'none'; // Hide year button
+    } else if (document.getElementById('climate').checked) {
+        climateLayer.addTo(map);
+        populateHeatmap();
+        map.addLayer(wardLayer);
+        switchYearButton.style.display = 'none'; // Hide year button
+    } else if (document.getElementById('dark').checked) {
+        darkLayer.addTo(map);
+        map.addLayer(wardLayer);
+        switchYearButton.style.display = 'none'; // Hide year button
+    }
+    // Always add editableLayers back
+    map.addLayer(editableLayers);
 }
 
 // Add event listeners to switch between layers
@@ -360,7 +353,56 @@ removeAllButton.addTo(map);
 //population map working
 
 // Population Data Parsing and Plotting
-let populationData = []; // Declare populationData globally
+// Initialize global variables
+let populationMarkers = null; // Global variable to store parsed CSV data
+let currentYearIndex = 0; // Start with the year 2001
+const years = [2001, 2011, 2022]; // Array to hold the years for switching
+
+// Get the switch year button
+const switchYearButton = document.getElementById('switchYearButton');
+
+// Function to toggle between years for population data
+function switchPopulationYear() {
+    currentYearIndex = (currentYearIndex + 1) % years.length; // Cycle through the years: 2001 -> 2011 -> 2022
+    const selectedYear = years[currentYearIndex];
+    
+    switchYearButton.innerText = `Switch Year (Current: ${selectedYear})`; // Update button text
+
+    // Re-plot clusters with the selected year's data
+    plotClusters(populationData, selectedYear);
+}
+
+// Custom control for switching years
+L.Control.YearSwitch = L.Control.extend({
+    onAdd: function(map) {
+        let div = L.DomUtil.create('div', 'leaflet-control-year-switch');
+        
+        let button = L.DomUtil.create('button', 'year-switch-button', div);
+        button.innerHTML = `Year: ${years[currentYearIndex]}`;
+        
+        // Prevent map panning when clicking the button
+        L.DomEvent.disableClickPropagation(button);
+        
+        // Handle the button click event to switch between years
+        L.DomEvent.on(button, 'click', function() {
+            // Cycle through the years
+            currentYearIndex = (currentYearIndex + 1) % years.length;
+            button.innerHTML = `Year: ${years[currentYearIndex]}`;
+            
+            // Plot the population data for the selected year
+            if (document.getElementById('population').checked) {
+                plotClusters(populationData, years[currentYearIndex]); // Update the map with the new year data
+            }
+        });
+        
+        return div;
+    },
+    onRemove: function(map) {
+        // Nothing to remove here
+    }
+});
+
+let yearSwitchControl = new L.Control.YearSwitch({ position: 'bottomleft' });
 
 // Use PapaParse to load and parse the CSV file
 Papa.parse('data/Population_Density_Scaled_2011_2022.csv', {
@@ -373,13 +415,12 @@ Papa.parse('data/Population_Density_Scaled_2011_2022.csv', {
         console.log(populationData); // Check the parsed data
         
         if (document.getElementById('population').checked) {
-            plotClusters(populationData, 2001); // Call function to plot clusters on map for the default year
+            plotClusters(populationData, 2001); // Call function to plot clusters on map for the default year (2001)
         }
     }
 });
 
-
-//Extend the extractPopulationData to handle different years
+// Extend the extractPopulationData function to handle different years
 function extractPopulationData(data) {
     return data.map(row => {
         const lat = parseFloat(row['Latitude']);
@@ -391,7 +432,7 @@ function extractPopulationData(data) {
                 population2001: parseFloat(row['Population 2001']) || 0, // Population for 2001
                 population2011: parseFloat(row['Population 2011']) || 0, // Population for 2011
                 population2022: parseFloat(row['Population 2022']) || 0, // Population for 2022
-                density2001: parseFloat(row['Density 2001']) || 0, // Density for 2001
+                density2001: parseFloat(row['Density per Square Kilometer']) || 0, // Density for 2001
                 density2011: parseFloat(row['Density 2011']) || 0, // Density for 2011
                 density2022: parseFloat(row['Density 2022']) || 0, // Density for 2022
                 lat: lat,
@@ -403,9 +444,13 @@ function extractPopulationData(data) {
     }).filter(row => row !== null); // Filter out invalid entries
 }
 
-// Update the plotClusters function to handle population and density based on the selected year
+// Updated plotClusters function to handle population and density based on the selected year
 function plotClusters(populationData, selectedYear) {
-    const markers = L.markerClusterGroup();
+     // Remove previous markers if they exist
+     if (populationMarkers) {
+        map.removeLayer(populationMarkers); // Remove the existing marker cluster group from the map
+    }
+    const markers = L.markerClusterGroup(); // Create a new marker cluster group
 
     populationData.forEach(function(item) {
         if (!isNaN(item.lat) && !isNaN(item.lng)) {
@@ -422,62 +467,47 @@ function plotClusters(populationData, selectedYear) {
             } else if (selectedYear === 2022) {
                 population = item.population2022;
                 density = item.density2022;
-            }
+            }   
+           // Update color based on density
+           const color = getColor(density);
 
-            // Update color based on density
-            const color = getColor(density);
+           let numPoints = Math.min(Math.floor(population / 500)); // A single point represents 500 people
 
-            let numPoints = Math.min(Math.floor(population / 500)); // A single point is 1000 people
+           if (numPoints > 0) {
+               let wardPolygon = findWardPolygon(item.name, wardLayer);
 
-            if (numPoints > 0) {
-                let wardPolygon = findWardPolygon(item.name, wardLayer);
+               if (wardPolygon?.coordinates?.length > 0) {
+                   let randomPoints = turf.randomPoint(numPoints, { bbox: turf.bbox(wardPolygon) });
 
-                if (wardPolygon?.coordinates?.length > 0) {
-                    let randomPoints = turf.randomPoint(numPoints, { bbox: turf.bbox(wardPolygon) });
+                   randomPoints.features.forEach(function(point) {
+                       let latLng = [point.geometry.coordinates[1], point.geometry.coordinates[0]];
 
-                    randomPoints.features.forEach(function(point) {
-                        let latLng = [point.geometry.coordinates[1], point.geometry.coordinates[0]];
+                       if (turf.booleanPointInPolygon(point, wardPolygon)) {
+                           const marker = L.circleMarker(latLng, {
+                               radius: 5,
+                               fillColor: color,
+                               color: "#000",
+                               weight: 1,
+                               opacity: 1,
+                               fillOpacity: 0.8
+                           }).bindPopup(`<strong>${item.name}</strong><br>Population: ${population}<br>Density: ${density}`);
 
-                        if (turf.booleanPointInPolygon(point, wardPolygon)) {
-                            const marker = L.circleMarker(latLng, {
-                                radius: 5,
-                                fillColor: color,
-                                color: "#000",
-                                weight: 1,
-                                opacity: 1,
-                                fillOpacity: 0.8
-                            }).bindPopup(`<strong>${item.name}</strong><br>Population: ${population}<br>Density: ${density}`);
+                           markers.addLayer(marker);
+                       }
+                   });
+               }
+           }
+       }
+   });
 
-                            markers.addLayer(marker);
-                        }
-                    });
-                }
-            }
-        }
-    });
+    // Add the new marker cluster group to the map
+    map.addLayer(markers);
 
-    map.addLayer(markers); // Add markers to the map
-    return markers; // Return the marker cluster group so it can be removed later
+    // Save the marker cluster group to the global variable so it can be removed later
+    populationMarkers = markers;
+
+    return markers; // Return the marker cluster group so it can be managed if needed
 }
-
-// Handle slider changes and update the map
-let currentMarkers = null; // Declare a global variable to store the marker layer
-
-document.getElementById('timeSlider').addEventListener('input', function(event) {
-    const selectedYear = parseInt(event.target.value);
-    document.getElementById('selectedYear').innerText = selectedYear;
-
-    // Remove the current markers (only if they exist)
-    if (currentMarkers) {
-        map.removeLayer(currentMarkers);
-    }
-
-    // Plot clusters for the new selected year
-    currentMarkers = plotClusters(populationData, selectedYear);
-});
-
-// Initialize the map with the default year
-plotClusters(populationData, 2001); // Default to the year 2001
 
 function findWardPolygon(wardName, wardLayer) {
     let polygon = null;
