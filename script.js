@@ -107,6 +107,18 @@ const darkLayer = L.tileLayer('https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.p
 	accessToken: 'V2sjOIE1X0a8eylOLVh2T5KsxwTLmusfEXqGlpImHRkjATJAH2rYw9ACYCLjo4bd'
 });
 
+// Get color based on AQI on ward areas
+function getColorAQI(AQI) {
+    return AQI > 300 ? '#7E0023' :    // Hazardous
+           AQI > 200 ? '#99004C' :    // Very Unhealthy
+           AQI > 150 ? '#FF0000' :    // Unhealthy
+           AQI > 100 ? '#FF7E00' :    // Unhealthy for Sensitive Groups
+           AQI > 50  ? '#FFFF00' :    // Moderate
+           AQI > 25  ? '#00E400' :    // Good
+                       '#00ffff'  ;
+}
+
+
 // Load wardmap data
 let wardLayer;
 // Load ward map data and store it in wardLayer
@@ -117,9 +129,12 @@ fetch('data/WardMap.geojson')
         wardLayer = L.geoJSON(geojsonData, {
             style: function (feature) {
                 return {
-                    color: "#ff0000",
-                    weight: 1,
-                    fillOpacity: 0.2
+                    fillColor: getColorAQI(feature.properties.AQI),
+                    weight: 2,
+                    opacity: 1,
+                    color: 'white',
+                    dashArray: '3',
+                    fillOpacity: 0.7
                 };
             },
             onEachFeature: function (feature, layer) {
