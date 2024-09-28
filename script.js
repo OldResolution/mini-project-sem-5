@@ -119,14 +119,14 @@ function getColorAQI(AQI) {
 }
 
 
-// Load wardmap data
-let wardLayer;
+// Load Cloropeth data
+let CLiwardLayer;
 // Load ward map data and store it in wardLayer
 fetch('data/WardMap.geojson')
     .then(response => response.json())
     .then(geojsonData => {
         // Initialize the GeoJSON layer
-        wardLayer = L.geoJSON(geojsonData, {
+        CLiwardLayer = L.geoJSON(geojsonData, {
             style: function (feature) {
                 return {
                     fillColor: getColorAQI(feature.properties.AQI),
@@ -142,6 +142,29 @@ fetch('data/WardMap.geojson')
                 layer.bindPopup("<b>Ward: </b>" + wardName);
             }
         });
+    });
+
+    // Load wardmap data
+let wardLayer;
+
+fetch('data/WardMap.geojson')
+    .then(response => response.json())
+    .then(geojsonData => {
+        // Initialize the GeoJSON layer but don't add it to the map
+        wardLayer = L.geoJSON(geojsonData, {
+            style: function (feature) {
+                return {
+                    color: "#ff7800",
+                    weight: 2,
+                    opacity: 1
+                };
+            },
+            onEachFeature: function (feature, layer) {
+                console.log(feature.properties);  // Log the properties to check the structure
+                let wardName = (feature.properties.NAME || "Unidentified Ward").trim();
+                layer.bindPopup("<b>Ward: </b>" + wardName);
+            }
+        })
     });
 
 // Add a marker for CSMT with a popup
@@ -160,22 +183,21 @@ function switchLayer() {
     // Check which layer is selected
     if (document.getElementById('population').checked) {
         populationLayer.addTo(map);
-        map.addLayer(wardLayer);
         plotClusters(populationData, years[currentYearIndex]); // Plot for the current year
         map.addControl(yearSwitchControl);
+        map.addLayer(wardLayer)
     } else if (document.getElementById('pollution').checked) {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
-        map.addLayer(wardLayer);
+        map.addLayer(CLiwardLayer);
         switchYearButton.style.display = 'none'; // Hide year button
     } else if (document.getElementById('climate').checked) {
         climateLayer.addTo(map);
         populateHeatmap();
-        map.addLayer(wardLayer);
         switchYearButton.style.display = 'none'; // Hide year button
+        map.addLayer(wardLayer)
     } else if (document.getElementById('dark').checked) {
         darkLayer.addTo(map);
-        map.addLayer(wardLayer);
         switchYearButton.style.display = 'none'; // Hide year button
     }
     // Always add editableLayers back
