@@ -56,7 +56,21 @@ async function fetchWeatherData(lat, lon) {
     }
 }
 
-// Populate heatmap data from weather API
+// Helper function to get color based on temperature
+function getTemperatureColor(temperature) {
+    // Use a color gradient from blue (cold) to red (hot)
+    if (temperature < 25) {
+        return '#0000FF'; // Blue for cold
+    } else if (temperature < 26) {
+        return '#00FFFF'; // Cyan for mild
+    } else if (temperature < 28) {
+        return '#FFFF00'; // Yellow for warm
+    } else {
+        return '#FF0000'; // Red for hot
+    }
+}
+
+// Populate heatmap data from weather API and fill wards based on climate data
 async function populateHeatmap() {
     const coordinates = [
         [19.047, 72.8746],
@@ -79,24 +93,92 @@ async function populateHeatmap() {
         [18.897756, 72.81332]
     ];
 
-    const heatmapData = [];
+    const climateData = [];
 
     for (const [lat, lon] of coordinates) {
         const weather = await fetchWeatherData(lat, lon);
         if (weather && weather.temperature !== null) {
-            heatmapData.push([weather.lat, weather.lon, weather.temperature]);
+            climateData.push({ lat, lon, temperature: weather.temperature });
         }
     }
 
-    if (heatmapData.length > 0) {
-        L.heatLayer(heatmapData, {
-            radius: 50,
-            blur: 45,
-            maxZoom: 17,
-        }).addTo(map);
+    // Load ward map data
+    const geojsonData = await fetch('data/WardMap.geojson').then(response => response.json());
+
+    // Initialize the GeoJSON layer
+    const wardLayer = L.geoJSON(geojsonData, {
+        style: function (feature) {
+            return {
+                color: "#ff0000",
+                weight: 1,
+                fillOpacity: 0.2
+            };
+        },
+        onEachFeature: function (feature, layer) {
+            let wardName = (feature.properties.NAME || "Unidentified Ward").trim();
+            layer.bindPopup("<b>Ward: </b>" + wardName);
+        }
+    });
+
+    // Add ward layer to map to make it possible to use the contains method
+    wardLayer.addTo(map);
+
+    if (climateData.length > 0) {
+        climateData.forEach(data => {
+            const point = L.latLng(data.lat, data.lon);
+            let temperatureColor = getTemperatureColor(data.temperature);
+
+            // Iterate over each layer in wardLayer to determine if the point resides within the ward
+            wardLayer.eachLayer(layer => {
+                if (layer.getBounds().contains(point)) {
+                    // If the point resides in the ward, change the style of the ward
+                    layer.setStyle({
+                        color: temperatureColor,
+                        weight: 1,
+                        fillOpacity: 0.6
+                    });
+                }
+            });
+
+            // Create an invisible marker for the climate data point
+            const climateMarker = L.marker(point, { opacity: 0 }).addTo(map);
+            climateMarker.bindPopup(`<b>Temperature:</b> ${data.temperature}°C`);
+        });
     } else {
-        console.error("No data available for heatmap.");
+        console.error("No data available for climate visualization.");
     }
+}
+
+
+// Call the function to populate the heatmap
+populateHeatmap();
+
+
+// Update the switchLayer function to include the climate data visualization
+function switchLayer() {
+    map.eachLayer(function (layer) {
+        if (layer !== baseLayer && layer !== editableLayers) {
+            map.removeLayer(layer);
+        }
+    });
+
+    if (document.getElementById('population').checked) {
+        populationLayer.addTo(map);
+        plotClusters(populationData);
+        map.addLayer(wardLayer);
+    } else if (document.getElementById('pollution').checked) {
+        waqiLayer.addTo(map);
+        fetchAndDisplayMarkers(); // Fetch and display pollution markers
+        map.addLayer(wardLayer);
+    } else if (document.getElementById('climate').checked) {
+        // Add ward layer and populate heatmap
+        map.addLayer(wardLayer);
+        populateHeatmap();
+    } else if (document.getElementById('dark').checked) {
+        darkLayer.addTo(map);
+        map.addLayer(wardLayer);
+    }
+    map.addLayer(editableLayers);
 }
 
 // Dark Layer 
