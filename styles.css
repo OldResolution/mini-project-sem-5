@@ -32,3 +32,23 @@ body {
 .custom-control input[type="radio"] {
     margin-right: 5px;
 }
+.leaflet-control-year-switch {
+    background: white;
+    padding: 5px;
+    border-radius: 5px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+}
+
+.year-switch-button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 3px;
+}
+
+.year-switch-button:hover {
+    background: #0056b3;
+}
