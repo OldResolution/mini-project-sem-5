@@ -172,7 +172,7 @@ L.marker([18.9398, 72.8355]).addTo(map)
     .bindPopup('Chhatrapati Shivaji Maharaj Terminus (CSMT).<br> A historic railway station in Mumbai.')
     .openPopup();
 
-// Update the switchLayer function to display the year-switch button only when population layer is active
+// Update the switchLayer function to display the year-switch button and population table only when the population layer is active
 function switchLayer() {
     map.eachLayer(function(layer) {
         if (layer !== baseLayer && layer !== editableLayers) {
@@ -180,26 +180,62 @@ function switchLayer() {
         }
     });
 
+    const switchYearButton = document.querySelector('.leaflet-control-year-switch');
+    const populationDataTable = document.getElementById('populationDataTable'); // Get the population table element
+
     // Check which layer is selected
     if (document.getElementById('population').checked) {
         populationLayer.addTo(map);
         plotClusters(populationData, years[currentYearIndex]); // Plot for the current year
         map.addControl(yearSwitchControl);
-        map.addLayer(wardLayer)
+        map.addLayer(wardLayer);
+
+        if (switchYearButton) {
+            switchYearButton.style.display = 'block'; // Show the year switch button
+        }
+
+        if (populationDataTable) {
+            populationDataTable.style.display = 'table'; // Show the population table
+        }
+        
     } else if (document.getElementById('pollution').checked) {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers(); // Fetch and display pollution markers
         map.addLayer(CLiwardLayer);
-        switchYearButton.style.display = 'none'; // Hide year button
+
+        if (switchYearButton) {
+            switchYearButton.style.display = 'none'; // Hide the year switch button
+        }
+
+        if (populationDataTable) {
+            populationDataTable.style.display = 'none'; // Hide the population table
+        }
+
     } else if (document.getElementById('climate').checked) {
         climateLayer.addTo(map);
         populateHeatmap();
-        switchYearButton.style.display = 'none'; // Hide year button
-        map.addLayer(wardLayer)
+        map.addLayer(wardLayer);
+
+        if (switchYearButton) {
+            switchYearButton.style.display = 'none'; // Hide the year switch button
+        }
+
+        if (populationDataTable) {
+            populationDataTable.style.display = 'none'; // Hide the population table
+        }
+
     } else if (document.getElementById('dark').checked) {
         darkLayer.addTo(map);
-        switchYearButton.style.display = 'none'; // Hide year button
+
+        if (switchYearButton) {
+            switchYearButton.style.display = 'none'; // Hide the year switch button
+        }
+
+        if (populationDataTable) {
+            populationDataTable.style.display = 'none'; // Hide the population table
+        }
     }
+
     // Always add editableLayers back
     map.addLayer(editableLayers);
 }
@@ -325,20 +361,70 @@ const drawControl = new L.Control.Draw({
 // Add draw control to the map
 map.addControl(drawControl);
 
+// Importing the required UUID generator
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 // Handle the creation of new shapes and retrieve their coordinates
 map.on(L.Draw.Event.CREATED, function (e) {
     const layer = e.layer;
-    editableLayers.addLayer(layer);
+    const shapeID = generateUUID(); // Generate unique shape ID
+    let shapeType, shapeCoordinates, shapeArea, shapeAreaInSqKm, populationValue = 0, populationDensity = 0;
+    let markerCount = 0; // Initialize marker count
+  
+    editableLayers.addLayer(layer); // Add drawn layer to the editable layer group
+  
+    // Handle different shape types
+    if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
+        shapeType = (layer instanceof L.Polygon) ? 'Polygon' : 'Rectangle';
+        shapeCoordinates = layer.getLatLngs(); // Get coordinates for polygon/rectangle
+        shapeArea = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]); // Calculate area in square meters
+        shapeAreaInSqKm = shapeArea / 1_000_000; // Convert area to square kilometers
+        console.log(`${shapeType} Coordinates:`, shapeCoordinates);
+        console.log(`${shapeType} Area (sq/km):`, shapeAreaInSqKm);
 
-    // Retrieve the exact coordinates
-    if (layer instanceof L.Polygon || layer instanceof L.Polyline) {
-        console.log('Coordinates:', layer.getLatLngs());
+        // Check population markers within polygon/rectangle
+        populationMarkers.eachLayer(function (marker) {
+            const latLng = marker.getLatLng();
+            if (isPointInPolygon(latLng, layer)) { // Custom function to check if point is inside polygon
+                markerCount++;
+            }
+        });
+
     } else if (layer instanceof L.Circle) {
-        console.log('Center:', layer.getLatLng());
-        console.log('Radius:', layer.getRadius());
-    } else if (layer instanceof L.Marker) {
-        console.log('Marker Coordinates:', layer.getLatLng());
+        shapeType = 'Circle';
+        const circleCenter = layer.getLatLng();
+        const circleRadius = layer.getRadius();
+        shapeCoordinates = { center: circleCenter, radius: circleRadius }; // Store center and radius
+        shapeArea = Math.PI * Math.pow(circleRadius, 2); // Area of the circle in square meters
+        shapeAreaInSqKm = shapeArea / 1_000_000; // Convert to square kilometers
+        console.log('Circle Center:', circleCenter);
+        console.log('Circle Radius:', circleRadius);
+        console.log('Circle Area (sq/km):', shapeAreaInSqKm);
+
+        // Check population markers within the circle
+        populationMarkers.eachLayer(function (marker) {
+            const latLng = marker.getLatLng();
+            if (isPointInCircle(latLng, layer)) { // Custom function to check if point is inside the circle
+                markerCount++;
+            }
+        });
     }
+
+    // Calculate population value (number of markers * 500)
+    populationValue = markerCount * 500;
+
+    // Calculate population density (population per square kilometer)
+    if (shapeAreaInSqKm > 0) {
+        populationDensity = populationValue / shapeAreaInSqKm;
+    }
+
+    // Display the population data in a table
+    displayPopulationInTable(shapeID, shapeType, shapeCoordinates, shapeAreaInSqKm, populationValue, populationDensity);
 });
 
 // Function to remove the last drawing
@@ -387,6 +473,45 @@ removeAllButton.onAdd = function(map) {
 };
 removeAllButton.addTo(map);
 
+// Function to check if a point is inside the polygon
+function isPointInPolygon(point, polygonLayer) {
+    const latLngs = polygonLayer.getLatLngs()[0];
+    if (latLngs[0] !== latLngs[latLngs.length - 1]) {
+        latLngs.push(latLngs[0]); // Close the polygon
+    }
+    const turfPolygon = turf.polygon([latLngs.map(latLng => [latLng.lng, latLng.lat])]);
+    const turfPoint = turf.point([point.lng, point.lat]);
+    return turf.booleanPointInPolygon(turfPoint, turfPolygon);
+}
+
+// Function to check if a point is inside a circle
+function isPointInCircle(latLng, circleLayer) {
+    const circleCenter = circleLayer.getLatLng();
+    const distance = map.distance(latLng, circleCenter); // Calculate distance
+    return distance <= circleLayer.getRadius();
+}
+// Function to display the shape data in the table with sq/km appended to area and density
+function displayPopulationInTable(shapeID, shapeType, shapeCoordinates, shapeAreaInSqKm, populationValue, populationDensity) {
+    const tableBody = document.querySelector('#populationDataTable tbody');
+
+    if (!tableBody) {
+        console.error("Table not found or not properly referenced.");
+        return;
+    }
+
+    // Add a new row with the shape data
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${shapeID}</td> <!-- Shape ID -->
+        <td>${shapeType}</td> <!-- Shape Type -->
+        <td>${JSON.stringify(shapeCoordinates)}</td> <!-- Shape Coordinates -->
+        <td>${shapeAreaInSqKm.toFixed(2)} sq/km</td> <!-- Shape Area with sq/km -->
+        <td>${populationValue}</td> <!-- Total Population -->
+        <td>${populationDensity.toFixed(2)} per sq/km</td> <!-- Population Density with sq/km -->
+    `;
+    tableBody.appendChild(row);
+}
+
 //population map working
 
 // Population Data Parsing and Plotting
@@ -394,9 +519,6 @@ removeAllButton.addTo(map);
 let populationMarkers = null; // Global variable to store parsed CSV data
 let currentYearIndex = 0; // Start with the year 2001
 const years = [2001, 2011, 2022]; // Array to hold the years for switching
-
-// Get the switch year button
-const switchYearButton = document.getElementById('switchYearButton');
 
 // Function to toggle between years for population data
 function switchPopulationYear() {

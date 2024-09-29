@@ -52,3 +52,19 @@ body {
 .year-switch-button:hover {
     background: #0056b3;
 }
+
+#populationDataTable {
+    display: none; /* Initially hidden */
+    width: 100%;
+    border-collapse: collapse; /* Ensure borders don't have extra space */
+}
+
+#populationDataTable th, #populationDataTable td {
+    border: 1px solid #2a2a2a; /* Dark border between columns */
+    padding: 8px;
+    text-align: left; /* Align text to the left */
+}
+
+#populationDataTable th {
+    background-color: #f2f2f2; /* Optional: Background color for headers */
+}
