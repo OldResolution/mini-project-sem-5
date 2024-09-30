@@ -150,37 +150,6 @@ async function populateHeatmap() {
 }
 
 
-// Call the function to populate the heatmap
-populateHeatmap();
-
-
-// Update the switchLayer function to include the climate data visualization
-function switchLayer() {
-    map.eachLayer(function (layer) {
-        if (layer !== baseLayer && layer !== editableLayers) {
-            map.removeLayer(layer);
-        }
-    });
-
-    if (document.getElementById('population').checked) {
-        populationLayer.addTo(map);
-        plotClusters(populationData);
-        map.addLayer(wardLayer);
-    } else if (document.getElementById('pollution').checked) {
-        waqiLayer.addTo(map);
-        fetchAndDisplayMarkers(); // Fetch and display pollution markers
-        map.addLayer(wardLayer);
-    } else if (document.getElementById('climate').checked) {
-        // Add ward layer and populate heatmap
-        map.addLayer(wardLayer);
-        populateHeatmap();
-    } else if (document.getElementById('dark').checked) {
-        darkLayer.addTo(map);
-        map.addLayer(wardLayer);
-    }
-    map.addLayer(editableLayers);
-}
-
 // Dark Layer 
 const darkLayer = L.tileLayer('https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.png?access-token=V2sjOIE1X0a8eylOLVh2T5KsxwTLmusfEXqGlpImHRkjATJAH2rYw9ACYCLjo4bd', {
 	attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; <b>Jawg</b>Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -216,7 +185,7 @@ fetch('data/WardMap.geojson')
                     opacity: 1,
                     color: 'white',
                     dashArray: '3',
-                    fillOpacity: 0.7
+                    fillOpacity: 0.2
                 };
             },
             onEachFeature: function (feature, layer) {
@@ -296,8 +265,6 @@ function switchLayer() {
     } else if (document.getElementById('climate').checked) {
         climateLayer.addTo(map);
         populateHeatmap();
-        map.addLayer(wardLayer);
-
         if (switchYearButton) {
             switchYearButton.style.display = 'none'; // Hide the year switch button
         }
