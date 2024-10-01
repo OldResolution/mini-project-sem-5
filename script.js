@@ -59,11 +59,11 @@ async function fetchWeatherData(lat, lon) {
 // Helper function to get color based on temperature
 function getTemperatureColor(temperature) {
     // Use a color gradient from blue (cold) to red (hot)
-    if (temperature < 25) {
+    if (temperature < 27) {
         return '#0000FF'; // Blue for cold
-    } else if (temperature < 26) {
+    } else if (temperature < 29) {
         return '#00FFFF'; // Cyan for mild
-    } else if (temperature < 28) {
+    } else if (temperature < 31 ) {
         return '#FFFF00'; // Yellow for warm
     } else {
         return '#FF0000'; // Red for hot
@@ -109,9 +109,9 @@ async function populateHeatmap() {
     const wardLayer = L.geoJSON(geojsonData, {
         style: function (feature) {
             return {
-                color: "#ff0000",
+                color: "#ffffff",
                 weight: 1,
-                fillOpacity: 0.2
+                fillOpacity: 0.1
             };
         },
         onEachFeature: function (feature, layer) {
@@ -141,7 +141,7 @@ async function populateHeatmap() {
             });
 
             // Create an invisible marker for the climate data point
-            const climateMarker = L.marker(point, { opacity: 0 }).addTo(map);
+            const climateMarker = L.marker(point, { opacity: 1 }).addTo(map);
             climateMarker.bindPopup(`<b>Temperature:</b> ${data.temperature}°C`);
         });
     } else {
@@ -223,7 +223,7 @@ L.marker([18.9398, 72.8355]).addTo(map)
     .bindPopup('Chhatrapati Shivaji Maharaj Terminus (CSMT).<br> A historic railway station in Mumbai.')
     .openPopup();
 
-// Update the switchLayer function to display the year-switch button and population table only when the population layer is active
+// Update the switchLayer function
 function switchLayer() {
     map.eachLayer(function(layer) {
         if (layer !== baseLayer && layer !== editableLayers) {
@@ -232,7 +232,9 @@ function switchLayer() {
     });
 
     const switchYearButton = document.querySelector('.leaflet-control-year-switch');
-    const populationDataTable = document.getElementById('populationDataTable'); // Get the population table element
+    const populationDataTable = document.getElementById('populationDataTable');
+    const comparisonTableContainer = document.getElementById('comparisonTableContainer');
+    const minimizedComparisonTable = document.getElementById('minimizedComparisonTable');
 
     // Check which layer is selected
     if (document.getElementById('population').checked) {
@@ -248,12 +250,30 @@ function switchLayer() {
         if (populationDataTable) {
             populationDataTable.style.display = 'table'; // Show the population table
         }
-        
-    } else if (document.getElementById('pollution').checked) {
-        waqiLayer.addTo(map);
-        fetchAndDisplayMarkers(); // Fetch and display pollution markers
-        map.addLayer(CLiwardLayer);
 
+        if (comparisonTableContainer) {
+            comparisonTableContainer.style.display = 'none'; // Hide full comparison table initially
+        }
+
+        if (minimizedComparisonTable) {
+            minimizedComparisonTable.style.display = 'block'; // Show minimized button for comparison table
+        }
+
+    } else {
+        // For any other layers (pollution, climate, dark, or base layer)
+        if (document.getElementById('pollution').checked) {
+            waqiLayer.addTo(map);
+            fetchAndDisplayMarkers();
+            map.addLayer(PopwardLayer);
+        } else if (document.getElementById('climate').checked) {
+            climateLayer.addTo(map);
+            populateHeatmap();
+            map.addLayer(CliwardLayer);
+        } else if (document.getElementById('dark').checked) {
+            darkLayer.addTo(map);
+        }
+
+        // Hide everything related to population and comparison for non-population layers
         if (switchYearButton) {
             switchYearButton.style.display = 'none'; // Hide the year switch button
         }
@@ -262,29 +282,14 @@ function switchLayer() {
             populationDataTable.style.display = 'none'; // Hide the population table
         }
 
-    } else if (document.getElementById('climate').checked) {
-        climateLayer.addTo(map);
-        populateHeatmap();
-        if (switchYearButton) {
-            switchYearButton.style.display = 'none'; // Hide the year switch button
+        if (comparisonTableContainer) {
+            comparisonTableContainer.style.display = 'none'; // Hide the comparison table container
         }
 
-        if (populationDataTable) {
-            populationDataTable.style.display = 'none'; // Hide the population table
-        }
-
-    } else if (document.getElementById('dark').checked) {
-        darkLayer.addTo(map);
-
-        if (switchYearButton) {
-            switchYearButton.style.display = 'none'; // Hide the year switch button
-        }
-
-        if (populationDataTable) {
-            populationDataTable.style.display = 'none'; // Hide the population table
+        if (minimizedComparisonTable) {
+            minimizedComparisonTable.style.display = 'none'; // Hide the minimized comparison button
         }
     }
-
     // Always add editableLayers back
     map.addLayer(editableLayers);
 }
@@ -410,12 +415,15 @@ const drawControl = new L.Control.Draw({
 // Add draw control to the map
 map.addControl(drawControl);
 
-// Importing the required UUID generator
+// Sequential ID generator, starting from 1
+let currentID = 1;
+
 function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    if (currentID > 100000) {
+        console.error("Maximum ID limit of 100000 reached.");
+        return null;  // Return null if limit is reached
+    }
+    return currentID++;
 }
 
 // Handle the creation of new shapes and retrieve their coordinates
@@ -538,8 +546,10 @@ function isPointInCircle(latLng, circleLayer) {
     const circleCenter = circleLayer.getLatLng();
     const distance = map.distance(latLng, circleCenter); // Calculate distance
     return distance <= circleLayer.getRadius();
-}
-// Function to display the shape data in the table with sq/km appended to area and density
+}let selectedShapes = []; // To store the selected shapes for comparison
+let existingComparisons = new Set(); // To keep track of existing comparisons
+
+// Function to display population data and add comparison button
 function displayPopulationInTable(shapeID, shapeType, shapeCoordinates, shapeAreaInSqKm, populationValue, populationDensity) {
     const tableBody = document.querySelector('#populationDataTable tbody');
 
@@ -557,9 +567,174 @@ function displayPopulationInTable(shapeID, shapeType, shapeCoordinates, shapeAre
         <td>${shapeAreaInSqKm.toFixed(2)} sq/km</td> <!-- Shape Area with sq/km -->
         <td>${populationValue}</td> <!-- Total Population -->
         <td>${populationDensity.toFixed(2)} per sq/km</td> <!-- Population Density with sq/km -->
+        <td><button class="compare-button" data-id="${shapeID}" data-population="${populationValue}" data-density="${populationDensity}" onclick="selectShapeForComparison('${shapeID}', ${populationValue}, ${populationDensity})">Compare</button></td>
     `;
     tableBody.appendChild(row);
 }
+
+// Function to select shapes for comparison
+function selectShapeForComparison(shapeID, populationValue, populationDensity) {
+    // Add or remove selected shape based on if it's already selected
+    const selectedShape = { shapeID, populationValue, populationDensity };
+
+    if (selectedShapes.some(shape => shape.shapeID === shapeID)) {
+        selectedShapes = selectedShapes.filter(shape => shape.shapeID !== shapeID);
+        console.log(`Shape ${shapeID} removed from selection`);
+    } else {
+        // Allow up to two shapes for selection
+        if (selectedShapes.length >= 2) {
+            alert('You can only compare two shapes at a time.');
+        } else {
+            selectedShapes.push(selectedShape);
+            console.log(`Shape ${shapeID} added for comparison`);
+        }
+    }
+
+    // If two shapes are selected, perform the comparison
+    if (selectedShapes.length === 2) {
+        compareShapes(selectedShapes[0], selectedShapes[1]);
+    }
+}
+
+// Function to compare two selected shapes
+function compareShapes(shape1, shape2) {
+    const populationDiff = Math.abs(shape1.populationValue - shape2.populationValue);
+    const densityDiff = parseFloat(Math.abs(shape1.populationDensity - shape2.populationDensity).toFixed(3));
+
+    const populationPercentageDiff = ((populationDiff / Math.max(shape1.populationValue, shape2.populationValue)) * 100).toFixed(2);
+    const densityPercentageDiff = ((densityDiff / Math.max(shape1.populationDensity, shape2.populationDensity)) * 100).toFixed(2);
+
+    // Unique key for comparison to avoid duplication (e.g., 'A vs B' and 'B vs A' are the same)
+    const comparisonKey = [shape1.shapeID, shape2.shapeID].sort().join(' vs ');
+
+    // Check if comparison already exists, if not, display it
+    if (!existingComparisons.has(comparisonKey)) {
+        displayComparisonResults(shape1, shape2, populationDiff, densityDiff, populationPercentageDiff, densityPercentageDiff);
+        existingComparisons.add(comparisonKey); // Add to existing comparisons set
+    } else {
+        console.log(`Comparison ${comparisonKey} already exists.`);
+    }
+}
+
+// Function to display the comparison results in the collapsible comparison table
+function displayComparisonResults(shape1, shape2, populationDiff, densityDiff, populationPercentageDiff, densityPercentageDiff) {
+    const comparisonTableBody = document.querySelector('#comparisonDataTable tbody');
+
+    // Create a new row with the comparison data
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${shape1.shapeID} vs ${shape2.shapeID}</td> <!-- Shape IDs -->
+        <td>${populationDiff}</td> <!-- Population Difference -->
+        <td>${densityDiff}</td> <!-- Density Difference -->
+        <td>${populationPercentageDiff}%</td> <!-- Population Percentage Difference -->
+        <td>${densityPercentageDiff}%</td> <!-- Density Percentage Difference -->
+    `;
+    comparisonTableBody.appendChild(row);
+
+    // Automatically show the comparison table when a comparison is done
+    comparisonTableContainer.style.display = 'block';
+    minimizedComparisonTable.style.display = 'none'; // Hide minimized button
+}
+
+// Create a custom control for the collapsible/minimizable comparison table
+const comparisonTableContainer = document.createElement('div');
+comparisonTableContainer.id = 'comparisonTableContainer';
+comparisonTableContainer.style.display = 'none'; // Hidden by default
+
+// Define the comparison table HTML structure
+comparisonTableContainer.innerHTML = `
+    <div id="comparisonTableHeader">
+        <span>Comparison Data</span>
+        <div>
+            <button id="minimizeComparisonBtn">_</button>
+            <button id="collapseComparisonBtn">X</button>
+        </div>
+    </div>
+    <div id="comparisonTableBody">
+        <table id="comparisonDataTable">
+            <thead>
+                <tr>
+                    <th>Shape Comparison</th>
+                    <th>Population Diff</th>
+                    <th>Density Diff</th>
+                    <th>Population % Diff</th>
+                    <th>Density % Diff</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div id="resizeHandle"></div> <!-- Resizable corner -->
+`;
+document.getElementById('map').appendChild(comparisonTableContainer);
+
+// Handle collapsible/minimizable functionality
+document.getElementById('collapseComparisonBtn').onclick = function() {
+    comparisonTableContainer.style.display = 'none';
+    minimizedComparisonTable.style.display = 'block'; // Show the minimized window
+};
+document.getElementById('minimizeComparisonBtn').onclick = function() {
+    const tableBody = document.getElementById('comparisonTableBody');
+    tableBody.style.display = tableBody.style.display === 'none' ? 'block' : 'none';
+};
+
+// Enable dragging of the entire table container
+let isDragging = false, offsetX, offsetY;
+
+comparisonTableContainer.onmousedown = function(e) {
+    // Only allow dragging if the click happens in the header or container, but not on the collapse button
+    if (e.target !== document.getElementById('collapseComparisonBtn') && e.target !== document.getElementById('minimizeComparisonBtn')) {
+        isDragging = true;
+        offsetX = e.offsetX;
+        offsetY = e.offsetY;
+    }
+};
+
+document.onmousemove = function(e) {
+    if (isDragging) {
+        comparisonTableContainer.style.left = (e.clientX - offsetX) + 'px';
+        comparisonTableContainer.style.top = (e.clientY - offsetY) + 'px';
+    }
+};
+
+document.onmouseup = function() {
+    isDragging = false;
+};
+
+// Enable resizing of the comparison table container
+let isResizing = false;
+const resizeHandle = document.getElementById('resizeHandle');
+resizeHandle.onmousedown = function(e) {
+    isResizing = true;
+    document.body.style.cursor = 'nwse-resize';
+};
+
+document.onmousemove = function(e) {
+    if (isResizing) {
+        const newWidth = e.clientX - comparisonTableContainer.offsetLeft;
+        const newHeight = e.clientY - comparisonTableContainer.offsetTop;
+        comparisonTableContainer.style.width = newWidth + 'px';
+        comparisonTableContainer.style.height = newHeight + 'px';
+    }
+};
+
+document.onmouseup = function() {
+    isResizing = false;
+    document.body.style.cursor = 'default';
+};
+
+// Create the minimized version of the comparison table
+const minimizedComparisonTable = document.createElement('div');
+minimizedComparisonTable.id = 'minimizedComparisonTable';
+minimizedComparisonTable.innerHTML = 'Show Comparison Table';
+minimizedComparisonTable.style.display = 'none'; // Initially hidden
+document.getElementById('map').appendChild(minimizedComparisonTable);
+
+// Restore full view when the minimized button is clicked
+minimizedComparisonTable.onclick = function() {
+    comparisonTableContainer.style.display = 'block';
+    minimizedComparisonTable.style.display = 'none'; // Hide the minimized button
+};
 
 //population map working
 

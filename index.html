@@ -1,52 +1,52 @@
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <title>Mumbai Interactive Map</title>
-        <link rel="stylesheet" href="styles.css">
-        <link href='https://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
-        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
-        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-        <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-        <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-        <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/5.1.6/turf.min.js"></script>
-    </head>
-    <body>
-        <div id="map"></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Mumbai Interactive Map</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href='https://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/5.1.6/turf.min.js"></script>
+</head>
+<body>
+    <div id="map"></div>
 
-        <div class="custom-control">
-            <h3>Layers</h3>
-            <div class="content">
-                <form>
-                    <input type="radio" name="layer" id="population" /> Population<br>
-                    <input type="radio" name="layer" id="pollution"  /> Pollution<br>
-                    <input type="radio" name="layer" id="climate" /> Climate<br>
-                    <input type="radio" name="layer" id="dark" /> Dark<br>
-                </form>
-            </div>
+    <!-- Layer selector -->
+    <div class="custom-control">
+        <h3>Layers</h3>
+        <div class="content">
+            <form>
+                <input type="radio" name="layer" id="population" /> Population<br>
+                <input type="radio" name="layer" id="pollution"  /> Pollution<br>
+                <input type="radio" name="layer" id="climate" /> Climate<br>
+                <input type="radio" name="layer" id="dark" /> Dark<br>
+            </form>
         </div>
-
-          <!-- Table to display filtered population data -->
-          <table id="populationDataTable" class="data-table">
-            <thead>
-                <tr>
-                    <th>Shape ID</th>
-                    <th>Shape Type</th>
-                    <th>Shape Coordinates</th>
-                    <th>Shape Area</th>
-                    <th>Total Population</th>
-                    <th>Population Density</th>
-                </tr>
-            </thead>
-            <tbody>
+    </div>
+    <!-- Table to display filtered population data -->
+    <table id="populationDataTable" class="data-table">
+        <thead>
+            <tr>
+                <th>Shape ID</th>
+                <th>Shape Type</th>
+                <th>Shape Coordinates</th>
+                <th>Shape Area</th>
+                <th>Total Population</th>
+                <th>Population Density</th>
+            </tr>
+        </thead>
+        <tbody>
             <!-- Data rows will be dynamically added here -->
-            </tbody>
-        </table>
+        </tbody>
+    </table>
 
-        <script src="script.js"></script>
-    </body>
-    </html>
+    <script src="script.js"></script>
+</body>
+</html>
