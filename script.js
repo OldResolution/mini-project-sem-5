@@ -223,45 +223,55 @@ L.marker([18.9398, 72.8355]).addTo(map)
     .bindPopup('Chhatrapati Shivaji Maharaj Terminus (CSMT).<br> A historic railway station in Mumbai.')
     .openPopup();
 
-// Update the switchLayer function
-function switchLayer() {
-    map.eachLayer(function(layer) {
-        if (layer !== baseLayer && layer !== editableLayers) {
-            map.removeLayer(layer);
-        }
-    });
-
-    const switchYearButton = document.querySelector('.leaflet-control-year-switch');
-    const populationDataTable = document.getElementById('populationDataTable');
-    const comparisonTableContainer = document.getElementById('comparisonTableContainer');
-    const minimizedComparisonTable = document.getElementById('minimizedComparisonTable');
-
-    // Check which layer is selected
-    if (document.getElementById('population').checked) {
-        populationLayer.addTo(map);
-        plotClusters(populationData, years[currentYearIndex]); // Plot for the current year
-        map.addControl(yearSwitchControl);
-        map.addLayer(wardLayer);
-
+    function switchLayer() {
+        map.eachLayer(function(layer) {
+            if (layer !== baseLayer && layer !== editableLayers) {
+                map.removeLayer(layer);
+            }
+        });
+    
+        const switchYearButton = document.querySelector('.leaflet-control-year-switch');
+        const populationDataTable = document.getElementById('populationDataTable');
+        const comparisonTableContainer = document.getElementById('comparisonTableContainer');
+        const minimizedComparisonTable = document.getElementById('minimizedComparisonTable');
+    
+        // Hide tables and year button by default
         if (switchYearButton) {
-            switchYearButton.style.display = 'block'; // Show the year switch button
+            switchYearButton.style.display = 'none';
         }
-
+    
         if (populationDataTable) {
-            populationDataTable.style.display = 'table'; // Show the population table
+            populationDataTable.style.display = 'none';
         }
-
+    
         if (comparisonTableContainer) {
-            comparisonTableContainer.style.display = 'none'; // Hide full comparison table initially
+            comparisonTableContainer.style.display = 'none';
         }
-
+    
         if (minimizedComparisonTable) {
-            minimizedComparisonTable.style.display = 'block'; // Show minimized button for comparison table
+            minimizedComparisonTable.style.display = 'none';
         }
-
-    } else {
-        // For any other layers (pollution, climate, dark, or base layer)
-        if (document.getElementById('pollution').checked) {
+    
+        // Check which layer is selected
+        if (document.getElementById('population').checked) {
+            populationLayer.addTo(map);
+            plotClusters(populationData, years[currentYearIndex]); // Plot for the current year
+            map.addControl(yearSwitchControl);
+            map.addLayer(wardLayer);
+    
+            // Show population-related UI elements
+            if (switchYearButton) {
+                switchYearButton.style.display = 'block';
+            }
+    
+            if (populationDataTable) {
+                populationDataTable.style.display = 'table';
+            }
+    
+            if (minimizedComparisonTable) {
+                minimizedComparisonTable.style.display = 'block';
+            }
+        } else if (document.getElementById('pollution').checked) {
             waqiLayer.addTo(map);
             fetchAndDisplayMarkers();
             map.addLayer(PopwardLayer);
@@ -272,27 +282,11 @@ function switchLayer() {
         } else if (document.getElementById('dark').checked) {
             darkLayer.addTo(map);
         }
-
-        // Hide everything related to population and comparison for non-population layers
-        if (switchYearButton) {
-            switchYearButton.style.display = 'none'; // Hide the year switch button
-        }
-
-        if (populationDataTable) {
-            populationDataTable.style.display = 'none'; // Hide the population table
-        }
-
-        if (comparisonTableContainer) {
-            comparisonTableContainer.style.display = 'none'; // Hide the comparison table container
-        }
-
-        if (minimizedComparisonTable) {
-            minimizedComparisonTable.style.display = 'none'; // Hide the minimized comparison button
-        }
+    
+        // Always add editableLayers back
+        map.addLayer(editableLayers);
     }
-    // Always add editableLayers back
-    map.addLayer(editableLayers);
-}
+    
 
 // Add event listeners to switch between layers
 document.getElementById('population').addEventListener('change', switchLayer);
