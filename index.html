@@ -14,6 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/5.1.6/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div id="map"></div>
@@ -46,7 +47,22 @@
             <!-- Data rows will be dynamically added here -->
         </tbody>
     </table>
+<!-- Comparison Chart Container -->
+<div id="chartContainer" style="display:none;">
+    <canvas id="comparisonChart"></canvas>
+</div>
 
+<!-- Buttons for chart type and comparison column switching -->
+<div id="chartButtons" style="display:none;">
+    <button id="barChartBtn">Bar Chart</button>
+    <button id="pieChartBtn">Pie Chart</button>
+    <button id="lineChartBtn">Line Chart</button>
+
+    <!-- Switch between comparison columns (area, population, density) -->
+    <button id="switchToAreaBtn">Compare by Area</button>
+    <button id="switchToPopulationBtn">Compare by Population</button>
+    <button id="switchToDensityBtn">Compare by Density</button>
+</div>    
     <script src="script.js"></script>
 </body>
 </html>

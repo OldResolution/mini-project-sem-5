@@ -477,18 +477,75 @@ map.on(L.Draw.Event.CREATED, function (e) {
     // Display the population data in a table
     displayPopulationInTable(shapeID, shapeType, shapeCoordinates, shapeAreaInSqKm, populationValue, populationDensity);
 });
-
-// Function to remove the last drawing
+// Function to remove the last drawing and clear the comparison data
 function removeLastDrawing() {
     const layers = editableLayers.getLayers();
     if (layers.length > 0) {
-        editableLayers.removeLayer(layers[layers.length - 1]);
+        const removedLayer = layers[layers.length - 1];
+        editableLayers.removeLayer(removedLayer);
+        
+        // Remove corresponding shape data if it exists
+        selectedShapes = selectedShapes.filter(shape => shape.shapeID !== removedLayer._id);
+        updateComparisonTable();
     }
 }
 
-// Function to remove all drawings
+// Function to remove all drawings and clear the comparison data
 function removeAllDrawings() {
     editableLayers.clearLayers();
+    selectedShapes = []; // Clear selected shapes
+    existingComparisons.clear(); // Clear existing comparisons
+    updateComparisonTable();
+}
+
+// Function to update tables after removing a shape
+function updateTablesAfterRemoval(removedLayer) {
+    const shapeID = removedLayer.options.id; // Assuming each layer has an id in options
+    const comparisonTableBody = document.querySelector('#comparisonDataTable tbody');
+    
+    // Remove corresponding rows in the population data table
+    const rows = document.querySelectorAll('#populationDataTable tbody tr');
+    rows.forEach(row => {
+        if (row.querySelector('.compare-button').dataset.id === shapeID) {
+            row.remove(); // Remove the row for the deleted shape
+        }
+    });
+
+    // Remove corresponding rows in the comparison data table
+    const comparisonRows = comparisonTableBody.querySelectorAll('tr');
+    comparisonRows.forEach(row => {
+        if (row.innerHTML.includes(shapeID)) {
+            row.remove(); // Remove the comparison row for the deleted shape
+        }
+    });
+}
+
+// Function to clear all tables
+function clearAllTables() {
+    const populationTableBody = document.querySelector('#populationDataTable tbody');
+    const comparisonTableBody = document.querySelector('#comparisonDataTable tbody');
+    
+    // Clear population data table
+    while (populationTableBody.firstChild) {
+        populationTableBody.removeChild(populationTableBody.firstChild);
+    }
+
+    // Clear comparison data table
+    while (comparisonTableBody.firstChild) {
+        comparisonTableBody.removeChild(comparisonTableBody.firstChild);
+    }
+}
+
+// Function to clear the comparison chart
+function clearComparisonChart() {
+    // Safely destroy the chart if it exists
+    if (window.comparisonChart instanceof Chart) {
+        window.comparisonChart.destroy();
+    }
+
+    // Hide the chart container and buttons
+    document.getElementById('chartContainer').style.display = 'none';
+    document.getElementById('chartButtons').style.display = 'none';
 }
 
 // Create buttons and add them to the map
@@ -540,8 +597,9 @@ function isPointInCircle(latLng, circleLayer) {
     const circleCenter = circleLayer.getLatLng();
     const distance = map.distance(latLng, circleCenter); // Calculate distance
     return distance <= circleLayer.getRadius();
-}let selectedShapes = []; // To store the selected shapes for comparison
-let existingComparisons = new Set(); // To keep track of existing comparisons
+}
+let selectedShapes = []; // Store the selected shapes for comparison
+let existingComparisons = new Set(); // Track existing comparisons
 
 // Function to display population data and add comparison button
 function displayPopulationInTable(shapeID, shapeType, shapeCoordinates, shapeAreaInSqKm, populationValue, populationDensity) {
@@ -568,25 +626,15 @@ function displayPopulationInTable(shapeID, shapeType, shapeCoordinates, shapeAre
 
 // Function to select shapes for comparison
 function selectShapeForComparison(shapeID, populationValue, populationDensity) {
-    // Add or remove selected shape based on if it's already selected
-    const selectedShape = { shapeID, populationValue, populationDensity };
+    const shapeArea = document.querySelector(`[data-id="${shapeID}"]`).closest('tr').querySelector('td:nth-child(4)').textContent.replace(' sq/km', '');
 
-    if (selectedShapes.some(shape => shape.shapeID === shapeID)) {
-        selectedShapes = selectedShapes.filter(shape => shape.shapeID !== shapeID);
-        console.log(`Shape ${shapeID} removed from selection`);
+    // Check if the shape has already been selected
+    const shapeExists = selectedShapes.find(shape => shape.shapeID === shapeID);
+    if (!shapeExists) {
+        selectedShapes.push({ shapeID, populationValue, populationDensity, shapeArea: parseFloat(shapeArea) });
+        generateComparisonResults(); // Populate the comparison table with the selected shape
     } else {
-        // Allow up to two shapes for selection
-        if (selectedShapes.length >= 2) {
-            alert('You can only compare two shapes at a time.');
-        } else {
-            selectedShapes.push(selectedShape);
-            console.log(`Shape ${shapeID} added for comparison`);
-        }
-    }
-
-    // If two shapes are selected, perform the comparison
-    if (selectedShapes.length === 2) {
-        compareShapes(selectedShapes[0], selectedShapes[1]);
+        alert(`${shapeID} is already selected for comparison.`);
     }
 }
 
@@ -594,41 +642,34 @@ function selectShapeForComparison(shapeID, populationValue, populationDensity) {
 function compareShapes(shape1, shape2) {
     const populationDiff = Math.abs(shape1.populationValue - shape2.populationValue);
     const densityDiff = parseFloat(Math.abs(shape1.populationDensity - shape2.populationDensity).toFixed(3));
-
     const populationPercentageDiff = ((populationDiff / Math.max(shape1.populationValue, shape2.populationValue)) * 100).toFixed(2);
     const densityPercentageDiff = ((densityDiff / Math.max(shape1.populationDensity, shape2.populationDensity)) * 100).toFixed(2);
 
-    // Unique key for comparison to avoid duplication (e.g., 'A vs B' and 'B vs A' are the same)
     const comparisonKey = [shape1.shapeID, shape2.shapeID].sort().join(' vs ');
 
-    // Check if comparison already exists, if not, display it
     if (!existingComparisons.has(comparisonKey)) {
         displayComparisonResults(shape1, shape2, populationDiff, densityDiff, populationPercentageDiff, densityPercentageDiff);
-        existingComparisons.add(comparisonKey); // Add to existing comparisons set
-    } else {
-        console.log(`Comparison ${comparisonKey} already exists.`);
+        existingComparisons.add(comparisonKey);
     }
 }
 
-// Function to display the comparison results in the collapsible comparison table
-function displayComparisonResults(shape1, shape2, populationDiff, densityDiff, populationPercentageDiff, densityPercentageDiff) {
+// Function to populate the comparison table
+function generateComparisonResults() {
     const comparisonTableBody = document.querySelector('#comparisonDataTable tbody');
+    comparisonTableBody.innerHTML = ''; // Clear previous entries
 
-    // Create a new row with the comparison data
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td>${shape1.shapeID} vs ${shape2.shapeID}</td> <!-- Shape IDs -->
-        <td>${populationDiff}</td> <!-- Population Difference -->
-        <td>${densityDiff}</td> <!-- Density Difference -->
-        <td>${populationPercentageDiff}%</td> <!-- Population Percentage Difference -->
-        <td>${densityPercentageDiff}%</td> <!-- Density Percentage Difference -->
-    `;
-    comparisonTableBody.appendChild(row);
-
-    // Automatically show the comparison table when a comparison is done
+    selectedShapes.forEach((shape, index) => {
+        // Only compare if there are at least two shapes
+        if (index < selectedShapes.length - 1) {
+            compareShapes(shape, selectedShapes[index + 1]);
+        }
+    });
+    
+    // Automatically show the comparison table and add generate chart button
     comparisonTableContainer.style.display = 'block';
-    minimizedComparisonTable.style.display = 'none'; // Hide minimized button
+    addGenerateChartButton();
 }
+
 
 // Create a custom control for the collapsible/minimizable comparison table
 const comparisonTableContainer = document.createElement('div');
@@ -661,6 +702,45 @@ comparisonTableContainer.innerHTML = `
     <div id="resizeHandle"></div> <!-- Resizable corner -->
 `;
 document.getElementById('map').appendChild(comparisonTableContainer);
+
+// Function to display the comparison results in the comparison table
+function displayComparisonResults(shape1, shape2, populationDiff, densityDiff, populationPercentageDiff, densityPercentageDiff) {
+    const comparisonTableBody = document.querySelector('#comparisonDataTable tbody');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${shape1.shapeID} vs ${shape2.shapeID}</td>
+        <td>${populationDiff}</td>
+        <td>${densityDiff}</td>
+        <td>${populationPercentageDiff}%</td>
+        <td>${densityPercentageDiff}%</td>
+        <td><button class="create-chart-button" onclick="generateComparisonChart()">Create Chart</button></td>
+    `;
+    comparisonTableBody.appendChild(row);
+}
+
+// Function to update the comparison table after removing shapes
+function updateComparisonTable() {
+    const comparisonTableBody = document.querySelector('#comparisonDataTable tbody');
+    comparisonTableBody.innerHTML = ''; // Clear previous comparison results
+    comparisonTableContainer.style.display = 'none'; // Hide comparison table
+}
+
+
+// Function to add the button to generate charts
+function addGenerateChartButton() {
+    const comparisonTableBody = document.querySelector('#comparisonDataTable tbody');
+    
+    // Check if there's already a button to generate the chart
+    if (!document.getElementById('generateChartBtn')) {
+        const buttonRow = document.createElement('tr');
+        buttonRow.innerHTML = `
+            <td colspan="6">
+                <button id="generateChartBtn" onclick="generateComparisonChart()">Generate Comparison Chart</button>
+            </td>
+        `;
+        comparisonTableBody.appendChild(buttonRow);
+    }
+}
 
 // Handle collapsible/minimizable functionality
 document.getElementById('collapseComparisonBtn').onclick = function() {
@@ -730,7 +810,94 @@ minimizedComparisonTable.onclick = function() {
     minimizedComparisonTable.style.display = 'none'; // Hide the minimized button
 };
 
-//population map working
+let currentColumn = 'area'; // Default column is 'area'
+let currentChartType = 'bar'; // Default chart type is 'bar'
+
+// Function to generate comparison chart
+// Function to generate the comparison chart with multiple shapes
+function generateComparisonChart() {
+    if (selectedShapes.length < 2) {
+        alert('Please select at least two shapes for comparison');
+        return;
+    }
+
+    const labels = selectedShapes.map(shape => shape.shapeID);
+    let data = [];
+
+    // Determine the data based on the currently selected column (area, population, or density)
+    if (currentColumn === 'area') {
+        data = selectedShapes.map(shape => shape.shapeArea);
+    } else if (currentColumn === 'population') {
+        data = selectedShapes.map(shape => shape.populationValue);
+    } else if (currentColumn === 'density') {
+        data = selectedShapes.map(shape => shape.populationDensity);
+    }
+
+    // Get the chart context from the existing canvas element
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+
+    // Safely destroy the previous chart instance if it exists and is a Chart instance
+    if (window.comparisonChart instanceof Chart) {
+        window.comparisonChart.destroy();
+    }
+
+    // Create the new chart
+    window.comparisonChart = new Chart(ctx, {
+        type: currentChartType,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: currentColumn === 'area' ? 'Shape Area (sq/km)' : 
+                        currentColumn === 'population' ? 'Total Population' : 
+                        'Population Density (per sq/km)',
+                data: data,
+                backgroundColor: currentChartType === 'pie' ? selectedShapes.map((_, i) => `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.6)`) : 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: currentChartType === 'pie' ? {} : {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Make sure the chart and buttons are visible
+    document.getElementById('chartContainer').style.display = 'block';
+    document.getElementById('chartButtons').style.display = 'block';
+}
+
+// Event listeners for chart type and column switches
+document.getElementById('barChartBtn').addEventListener('click', () => {
+    currentChartType = 'bar';
+    generateComparisonChart();
+});
+document.getElementById('pieChartBtn').addEventListener('click', () => {
+    currentChartType = 'pie';
+    generateComparisonChart();
+});
+document.getElementById('lineChartBtn').addEventListener('click', () => {
+    currentChartType = 'line';
+    generateComparisonChart();
+});
+document.getElementById('switchToAreaBtn').addEventListener('click', () => {
+    currentColumn = 'area'; // Switch to area comparison
+    generateComparisonChart();
+});
+document.getElementById('switchToPopulationBtn').addEventListener('click', () => {
+    currentColumn = 'population'; // Switch to population comparison
+    generateComparisonChart();
+});
+document.getElementById('switchToDensityBtn').addEventListener('click', () => {
+    currentColumn = 'density'; // Switch to density comparison
+    generateComparisonChart();
+});
+
+//population map working    
 
 // Population Data Parsing and Plotting
 // Initialize global variables
