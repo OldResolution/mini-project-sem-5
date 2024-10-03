@@ -82,8 +82,10 @@ function switchLayer() {
     const populationDataTable = document.getElementById('populationDataTable');
     const comparisonTableContainer = document.getElementById('comparisonTableContainer');
     const minimizedComparisonTable = document.getElementById('minimizedComparisonTable');
+    const chartContainer = document.getElementById('chartContainer'); // Add chart container reference
+    const chartButtons = document.getElementById('chartButtons'); // Add chart buttons reference
 
-    // Hide tables and year button by default
+    // Hide tables, year button, and chart by default
     if (switchYearButton) {
         switchYearButton.style.display = 'none';
     }
@@ -98,6 +100,14 @@ function switchLayer() {
 
     if (minimizedComparisonTable) {
         minimizedComparisonTable.style.display = 'none';
+    }
+
+    if (chartContainer) {
+        chartContainer.style.display = 'none'; // Hide the chart container
+    }
+
+    if (chartButtons) {
+        chartButtons.style.display = 'none'; // Hide the chart buttons
     }
 
     // Check which layer is selected
@@ -119,6 +129,14 @@ function switchLayer() {
         if (minimizedComparisonTable) {
             minimizedComparisonTable.style.display = 'block';
         }
+
+        if (chartContainer) {
+            chartContainer.style.display = 'block'; // Show the chart container
+        }
+
+        if (chartButtons) {
+            chartButtons.style.display = 'block'; // Show the chart buttons
+        }
     } else if (document.getElementById('pollution').checked) {
         waqiLayer.addTo(map);
         fetchAndDisplayMarkers();
@@ -132,7 +150,7 @@ function switchLayer() {
     // Always add editableLayers back
     map.addLayer(editableLayers);
 }
-
+    
 
 // Add event listeners to switch between layers
 document.getElementById('population').addEventListener('change', switchLayer);
@@ -218,35 +236,40 @@ function removeAllDrawings() {
     updateComparisonTable();
 }
 
-// Create buttons and add them to the map
-const removeLastButton = L.control({ position: 'topleft' });
-removeLastButton.onAdd = function(map) {
+// Helper function to create buttons with icons and tooltips
+function createCustomButton(iconClass, titleText, onClickFunction) {
     const div = L.DomUtil.create('div', 'leafconst-bar leafconst-control leafconst-control-custom');
-    div.innerHTML = '<button title="Remove Last Drawing">Remove Last</button>';
+    
+    // Create icon inside the div
+    div.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
+    
+    // Style the button
     div.style.backgroundColor = 'white';
     div.style.padding = '5px';
     div.style.cursor = 'pointer';
+    div.style.textAlign = 'center';
+    
+    // Add hover effect (tooltip)
+    div.title = titleText;
 
-    div.onclick = function() {
-        removeLastDrawing();
-    };
+    // Add click event
+    div.onclick = onClickFunction;
 
+    return div;
+}
+
+// Remove last drawing button with icon and hover text
+const removeLastButton = L.control({ position: 'topleft' });
+removeLastButton.onAdd = function(map) {
+    const div = createCustomButton('fas fa-undo', 'Remove Last Drawing', removeLastDrawing);
     return div;
 };
 removeLastButton.addTo(map);
 
+// Remove all drawings button with icon and hover text
 const removeAllButton = L.control({ position: 'topleft' });
 removeAllButton.onAdd = function(map) {
-    const div = L.DomUtil.create('div', 'leafconst-bar leafconst-control leafconst-control-custom');
-    div.innerHTML = '<button title="Remove All Drawings">Remove All</button>';
-    div.style.backgroundColor = 'white';
-    div.style.padding = '5px';
-    div.style.cursor = 'pointer';
-
-    div.onclick = function() {
-        removeAllDrawings();
-    };
-
+    const div = createCustomButton('fas fa-trash-alt', 'Remove All Drawings', removeAllDrawings);
     return div;
 };
 removeAllButton.addTo(map);
@@ -301,7 +324,7 @@ L.Control.YearSwitch = L.Control.extend({
 });
 
 let yearSwitchControl = new L.Control.YearSwitch({ position: 'bottomleft' });
-
+let populationData;
 // Use PapaParse to load and parse the CSV file
 Papa.parse('data/Population_Density_Scaled_2011_2022.csv', {
     download: true,
@@ -424,14 +447,14 @@ function findWardPolygon(wardName, wardLayer) {
 
 // Get color based on population density
 function getColor(density) {
-    if (density > 2000) return '#FF0000'; // Red for very high density
-    else if (density > 1000) return '#FF6600'; // Orange-red for high density
-    else if (density > 500) return '#FF9900'; // Orange for medium density
-    else if (density > 100) return '#FFFF00'; // Yellow for low density
+    if (density > 90000) return '#FF0000'; // Red for very high density
+    else if (density > 65000) return '#FF6600'; // Orange-red for high density
+    else if (density > 40000) return '#FF9900'; // Orange for medium density
+    else if (density > 20000) return '#FFFF00'; // Yellow for low density
     else return '#00FF00'; // Green for very low density
 }
 
-// Getting Shape Elements and Chart Generation\
+// Getting Shape Elements and Chart Generation
 
 // Handle the creation of new shapes and retrieve their coordinates
 map.on(L.Draw.Event.CREATED, function (e) {
@@ -507,6 +530,7 @@ function isPointInCircle(latLng, circleLayer) {
     const distance = map.distance(latLng, circleCenter); // Calculate distance
     return distance <= circleLayer.getRadius();
 }
+
 let selectedShapes = []; // Store the selected shapes for comparison
 let existingComparisons = new Set(); // Track existing comparisons
 // Sequential ID generator, starting from 1
@@ -869,7 +893,22 @@ document.getElementById('switchToDensityBtn').addEventListener('click', () => {
 // Fetch air quality data and add invisible markers to the map
 const token = '5cf7bdb4e7c9de6a6c85ab64cfa39d086f9e7572'; // Replace with your actual token
 
-function fetchAndDisplayMarkers() {
+// Determine AQI Level and Icon based on AQI value
+function getAqiLevel(aqi) {
+    if (aqi <= 50) {
+        return { text: "Good", color: "green", icon: "🙂" };
+    } else if (aqi <= 100) {
+        return { text: "Moderate", color: "yellow", icon: "😐" };
+    } else if (aqi <= 150) {
+        return { text: "Unhealthy for Sensitive Groups", color: "orange", icon: "😷" };
+    } else if (aqi <= 200) {
+        return { text: "Unhealthy", color: "red", icon: "😵" };
+    } else {
+        return { text: "Very Unhealthy", color: "purple", icon: "💀" };
+    }
+}
+
+fetchAndDisplayMarkers = function() {
     const bounds = map.getBounds();
     const url = `https://api.waqi.info/map/bounds/?token=${token}&latlng=${bounds.getSouthWest().lat},${bounds.getSouthWest().lng},${bounds.getNorthEast().lat},${bounds.getNorthEast().lng}`;
 
@@ -878,25 +917,34 @@ function fetchAndDisplayMarkers() {
         .then(data => {
             if (data.status === 'ok') {
                 data.data.forEach(station => {
-                    // Fetch detailed station data to get pollutants information
                     const stationUrl = `https://api.waqi.info/feed/@${station.uid}/?token=${token}`;
 
                     fetch(stationUrl)
                         .then(response => response.json())
                         .then(stationData => {
                             if (stationData.status === 'ok') {
-                                const pollutants = stationData.data.iaqi; // Individual Air Quality Index
+                                const pollutants = stationData.data.iaqi;
+                                const aqi = station.aqi;
+                                const aqiLevel = getAqiLevel(aqi);
 
-                                // Build a popup content with pollutants data
+                                // Build a popup content with pollutants data and custom UI
                                 const popupContent = `
-                                    <b>Station:</b> ${station.station.name}<br>
-                                    <b>AQI:</b> ${station.aqi}<br>
-                                    <b>PM2.5:</b> ${pollutants.pm25 ? pollutants.pm25.v : 'N/A'}<br>
-                                    <b>PM10:</b> ${pollutants.pm10 ? pollutants.pm10.v : 'N/A'}<br>
-                                    <b>O3:</b> ${pollutants.o3 ? pollutants.o3.v : 'N/A'}<br>
-                                    <b>NO2:</b> ${pollutants.no2 ? pollutants.no2.v : 'N/A'}<br>
-                                    <b>SO2:</b> ${pollutants.so2 ? pollutants.so2.v : 'N/A'}<br>
-                                    <b>CO:</b> ${pollutants.co ? pollutants.co.v : 'N/A'}
+                                    <div style="font-family: Arial, sans-serif; padding: 10px; text-align: center;">
+                                        <h3 style="margin: 5px;">${station.station.name}</h3>
+                                        <div style="background-color: ${aqiLevel.color}; padding: 10px; border-radius: 5px; margin: 5px 0;">
+                                            <span style="font-size: 2em;">${aqiLevel.icon}</span>
+                                            <div style="font-size: 1.5em; font-weight: bold;">${aqi} - ${aqiLevel.text}</div>
+                                        </div>
+                                        <p style="font-size: 0.9em; color: gray;">Updated: ${new Date(stationData.data.time.s).toLocaleString()}</p>
+                                        <div style="text-align: left; padding: 5px;">
+                                            <div><b>PM2.5:</b> ${pollutants.pm25 ? pollutants.pm25.v : 'N/A'}</div>
+                                            <div><b>PM10:</b> ${pollutants.pm10 ? pollutants.pm10.v : 'N/A'}</div>
+                                            <div><b>O3:</b> ${pollutants.o3 ? pollutants.o3.v : 'N/A'}</div>
+                                            <div><b>NO2:</b> ${pollutants.no2 ? pollutants.no2.v : 'N/A'}</div>
+                                            <div><b>SO2:</b> ${pollutants.so2 ? pollutants.so2.v : 'N/A'}</div>
+                                            <div><b>CO:</b> ${pollutants.co ? pollutants.co.v : 'N/A'}</div>
+                                        </div>
+                                    </div>
                                 `;
 
                                 L.marker([station.lat, station.lon], { opacity: 0 }).addTo(map)
@@ -912,8 +960,7 @@ function fetchAndDisplayMarkers() {
             }
         })
         .catch(error => console.error('Error:', error));
-}
-
+};
 
 map.on('moveend', function() {
     if (document.getElementById('pollution').checked) {
@@ -960,8 +1007,8 @@ function getColorAQI(AQI) {
 
 
 //CLIMATE LAYER WORKING
-// OpenWeatherMap API key (replace with your own key)
-const apiKey = '80292c7c9a0e2548d796c7b98b739b03'; // Your OpenWeatherMap API key
+// OpenWeatherMap API key
+const apiKey = '80292c7c9a0e2548d796c7b98b739b03'; 
 
 // Fetch weather data for different locations
 async function fetchWeatherData(lat, lon) {
@@ -1061,7 +1108,7 @@ async function populateHeatmap() {
                     layer.setStyle({
                         color: temperatureColor,
                         weight: 1,
-                        fillOpacity: 0.6
+                        fillOpacity: 0.3
                     });
                 }
             });

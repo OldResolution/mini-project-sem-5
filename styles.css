@@ -143,3 +143,57 @@ body {
     cursor: pointer; /* Pointer cursor to indicate it's clickable */
     z-index: 1000; /* Ensure it's on top of other map elements */
 }
+
+#comparisonChart {
+    width: 600px; /* Set a fixed width */
+    height: 400px; /* Set a fixed height */
+    max-width: 100%; /* Ensure it doesn't exceed container width */
+    max-height: 100%;
+}
+
+#chartContainer {
+    width: 600px; /* Same width as canvas to ensure container fits */
+    height: 300px; /* Same height as canvas */
+    display: block; /* Ensure visibility when shown */
+    margin: 0 auto; /* Optional: Center the chart horizontally */
+}
+
+.leafconst-control-custom i {
+    font-size: 18px; /* Icon size */
+    color: #333; /* Icon color */
+}
+
+.leafconst-control-custom {
+    border-radius: 5px; /* Rounded corners */
+    transition: background-color 0.3s ease; /* Smooth hover effect */
+}
+
+.leafconst-control-custom:hover {
+    background-color: #f1f1f1; /* Change background on hover */
+}
+
+.leaflet-popup-content-wrapper {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    font-family: 'Arial', sans-serif;
+}
+
+.leaflet-popup-content h3 {
+    font-size: 1.2em;
+    margin: 0;
+}
+
+.leaflet-popup-content .aqi-level {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: lightgreen;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.leaflet-popup-content .aqi-level span {
+    font-size: 1.5em;
+    margin-right: 10px;
+}
