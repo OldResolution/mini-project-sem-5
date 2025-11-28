@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Mumbai Interactive Map</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href='https://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/5.1.6/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Layer selector -->
+    <div class="custom-control">
+        <h3>Layers</h3>
+        <div class="content">
+            <form>
+                <input type="radio" name="layer" id="population" /> Population<br>
+                <input type="radio" name="layer" id="pollution"  /> Pollution<br>
+                <input type="radio" name="layer" id="climate" /> Climate<br>
+            </form>
+        </div>
+    </div>
+    <!-- Table to display filtered population data -->
+    <table id="populationDataTable" class="data-table">
+        <thead>
+            <tr>
+                <th>Shape ID</th>
+                <th>Shape Type</th>
+                <th>Shape Coordinates</th>
+                <th>Shape Area</th>
+                <th>Total Population</th>
+                <th>Population Density</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data rows will be dynamically added here -->
+        </tbody>
+    </table>
+<!-- Comparison Chart Container -->
+<div id="chartContainer" style="display:none;">
+    <canvas id="comparisonChart"></canvas>
+</div>
+
+<!-- Buttons for chart type and comparison column switching -->
+<div id="chartButtons" style="display:none;">
+    <button id="barChartBtn">Bar Chart</button>
+    <button id="pieChartBtn">Pie Chart</button>
+    <button id="lineChartBtn">Line Chart</button>
+
+    <!-- Switch between comparison columns (area, population, density) -->
+    <button id="switchToAreaBtn">Compare by Area</button>
+    <button id="switchToPopulationBtn">Compare by Population</button>
+    <button id="switchToDensityBtn">Compare by Density</button>
+</div>    
+    <script src="script.js"></script>
+</body>
+</html>
