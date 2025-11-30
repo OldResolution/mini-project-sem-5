@@ -11,6 +11,7 @@ import Papa from 'papaparse';
 import * as turf from '@turf/turf';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement } from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
+import axios from 'axios';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
 
@@ -26,9 +27,17 @@ const MapComponent = () => {
     const [showComparison, setShowComparison] = useState(false);
     const [chartType, setChartType] = useState('bar');
     const [chartMetric, setChartMetric] = useState('density'); // 'density', 'population', 'area'
+    const [predictionMode, setPredictionMode] = useState(false);
+    const [monthOffset, setMonthOffset] = useState(0); // -12 to +12 months
+    const [isPlaying, setIsPlaying] = useState(false);
     const years = [2001, 2011, 2022];
     
     const geoJsonDataRef = useRef(null);
+    const latestMonthOffset = useRef(monthOffset);
+
+    useEffect(() => {
+        latestMonthOffset.current = monthOffset;
+    }, [monthOffset]);
     
     // Layer Refs to keep track of instances
     const layersRef = useRef({
@@ -39,11 +48,21 @@ const MapComponent = () => {
         climate: null, // The tile layer (if used, though legacy code seems to use tiles AND heatmap?)
         climateWard: null,
         climateMarkers: null,
-        dark: null,
         ward: null,
         markers: null, // For population clusters
-        editable: null
+        editable: null,
+        predictionMarkers: null
     });
+
+    const supportedStations = [
+        { name: "Kurla", lat: 19.0726, lon: 72.8845 },
+        { name: "Chhatrapati Shivaji Intl. Airport (T2)", lat: 19.0974, lon: 72.8745 },
+        { name: "Chakala-Andheri East", lat: 19.1113, lon: 72.8608 },
+        { name: "Mazgaon", lat: 18.9696, lon: 72.8456 },
+        { name: "Powai", lat: 19.1176, lon: 72.9060 },
+        { name: "Navy Nagar-Colaba", lat: 18.9067, lon: 72.8147 },
+        { name: "Worli", lat: 19.0178, lon: 72.8181 }
+    ];
 
     // Fetch Population Data
     useEffect(() => {
@@ -270,18 +289,12 @@ const MapComponent = () => {
             attribution: 'Air Quality Tiles &copy; <a href="http://waqi.info">waqi.info</a>' 
         });
 
-        // Climate Layer (Local)
-        layersRef.current.climate = L.tileLayer('/tiles/climate/{z}/{x}/{y}.jpg', {
-            minZoom: 12,
-            maxZoom: 15,
-            attribution: 'Local Climate Tiles'
-        });
-
-        // Dark Layer (Local)
-        layersRef.current.dark = L.tileLayer('/tiles/dark/{z}/{x}/{y}.png', {
-            attribution: 'Local Dark Tiles',
-            minZoom: 12,
-            maxZoom: 15
+        // Climate Layer (Satellite)
+        layersRef.current.climate = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.{ext}', {
+            minZoom: 0,
+            maxZoom: 20,
+            attribution: '&copy; CNES, Distribution Airbus DS, © Airbus DS, © PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            ext: 'jpg'
         });
 
         // Editable Layer Group
@@ -767,12 +780,204 @@ const MapComponent = () => {
             .catch(error => console.error('Error:', error));
     };
 
+    const fetchAndDisplayPredictions = async () => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        const currentRequestOffset = monthOffset;
+
+        // Clear existing pollution markers
+        if (layersRef.current.pollutionMarkers) {
+            map.removeLayer(layersRef.current.pollutionMarkers);
+            layersRef.current.pollutionMarkers = null;
+        }
+        
+        // Initialize or get existing prediction markers group
+        let markersGroup = layersRef.current.predictionMarkers;
+        if (!markersGroup) {
+            markersGroup = L.layerGroup();
+            markersGroup.addTo(map);
+            layersRef.current.predictionMarkers = markersGroup;
+        }
+
+        // Helper to create/update marker with loading state or data
+        const updateMarker = (station, aqi = null, isLoading = true) => {
+            let marker = null;
+            
+            // Find existing marker for this station
+            markersGroup.eachLayer(layer => {
+                if (layer.options.stationName === station.name) {
+                    marker = layer;
+                }
+            });
+
+            let htmlContent;
+            let bgColor = '#ccc'; // Default loading color
+
+            if (isLoading) {
+                htmlContent = `
+                    <div class="prediction-marker-container">
+                        <div class="prediction-marker-box" style="background-color: #f0f0f0; border-color: #f0f0f0;">
+                            <div class="prediction-loader"></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const aqiLevel = getAqiLevel(aqi);
+                bgColor = aqiLevel.color;
+                // Adjust text color for contrast
+                const textColor = (bgColor === 'yellow' || bgColor === 'orange' || bgColor === 'green') ? '#333' : 'white';
+                
+                htmlContent = `
+                    <div class="prediction-marker-container">
+                        <div class="prediction-marker-box" style="background-color: ${bgColor}; border-color: ${bgColor}; color: ${textColor}">
+                            ${Math.round(aqi)}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const icon = L.divIcon({
+                className: 'custom-prediction-icon', // We can use this class if we need more specific styling
+                html: htmlContent,
+                iconSize: [40, 40],
+                iconAnchor: [20, 40] // Center bottom
+            });
+
+            if (marker) {
+                marker.setIcon(icon);
+                // Update popup content if not loading
+                if (!isLoading && aqi !== null) {
+                     const aqiLevel = getAqiLevel(aqi);
+                     const popupContent = `
+                        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 250px; text-align: center;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #333;">${station.name}</h3>
+                            
+                            <div style="background-color: ${aqiLevel.color}; padding: 15px; border-radius: 8px; color: ${aqiLevel.color === '#ffff00' ? '#333' : 'white'}; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                                <div style="font-size: 40px; margin-bottom: 5px;">${aqiLevel.icon}</div>
+                                <div style="font-size: 24px; font-weight: bold; margin-bottom: 5px;">${Math.round(aqi)}</div>
+                                <div style="font-size: 16px; font-weight: 600; line-height: 1.2;">${aqiLevel.text}</div>
+                            </div>
+
+                            <div style="margin-top: 15px; text-align: left; font-size: 13px; color: #555;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 3px;">
+                                    <strong>Predicted AQI:</strong> <span>${Math.round(aqi)}</span>
+                                </div>
+                                <div style="margin-top: 10px; font-size: 11px; color: #888; text-align: center;">
+                                    (Monthly Average Prediction)
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    marker.bindPopup(popupContent);
+                }
+            } else {
+                // Create new marker
+                marker = L.marker([station.lat, station.lon], { 
+                    icon: icon,
+                    stationName: station.name // Custom option to identify marker
+                });
+                markersGroup.addLayer(marker);
+            }
+        };
+
+        // Set all markers to loading state immediately
+        supportedStations.forEach(station => {
+            updateMarker(station, null, true);
+        });
+
+        // Check session storage for cached predictions
+        const cacheKey = `prediction_cache_${monthOffset}`;
+        const cachedData = sessionStorage.getItem(cacheKey);
+
+        if (cachedData) {
+            const predictions = JSON.parse(cachedData);
+            predictions.forEach(pred => {
+                const { station, data } = pred;
+                const { predicted_aqi } = data;
+                updateMarker(station, predicted_aqi, false);
+            });
+        } else {
+            const newPredictions = [];
+            // Fetch for all stations
+            const promises = supportedStations.map(async (station) => {
+                if (currentRequestOffset !== latestMonthOffset.current) return;
+                try {
+                    const response = await axios.post('http://localhost:5000/api/predict', {
+                        location: station.name,
+                        months_offset: monthOffset
+                    });
+
+                    if (response.data && !response.data.error) {
+                        const { predicted_aqi } = response.data;
+                        // Only update if this is still the latest request
+                        if (currentRequestOffset === latestMonthOffset.current) {
+                            updateMarker(station, predicted_aqi, false);
+                            newPredictions.push({ station, data: response.data });
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error predicting for ${station.name}:`, error);
+                }
+            });
+
+            await Promise.all(promises);
+
+            // Cache the new predictions if we have them and request is still valid
+            if (newPredictions.length > 0 && currentRequestOffset === latestMonthOffset.current) {
+                sessionStorage.setItem(cacheKey, JSON.stringify(newPredictions));
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (predictionMode) {
+            const map = mapInstanceRef.current;
+            const layers = layersRef.current;
+
+            // Explicitly remove all potential overlay layers to ensure clean slate
+            const layersToRemove = [
+                layers.population, 
+                layers.pollution, 
+                layers.pollutionMarkers, 
+                layers.climate, 
+                layers.climateWard, 
+                layers.climateMarkers, 
+                layers.ward, 
+                layers.markers
+            ];
+
+            if (map) {
+                layersToRemove.forEach(layer => {
+                    if (layer && map.hasLayer(layer)) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                // Ensure base layer is active (OSM)
+                if (layers.base && !map.hasLayer(layers.base)) {
+                    layers.base.addTo(map);
+                }
+            }
+
+            fetchAndDisplayPredictions();
+        } else {
+            // Clear prediction markers
+            if (layersRef.current.predictionMarkers && mapInstanceRef.current) {
+                mapInstanceRef.current.removeLayer(layersRef.current.predictionMarkers);
+                layersRef.current.predictionMarkers = null;
+            }
+            // Restore normal pollution markers if active
+            handleLayerChange(activeLayer);
+        }
+    }, [predictionMode, monthOffset]);
+
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map) return;
 
         const handleMoveEnd = () => {
-            if (activeLayer === 'pollution') {
+            if (activeLayer === 'pollution' && !predictionMode) {
                 fetchAndDisplayMarkers();
             }
         };
@@ -782,16 +987,18 @@ const MapComponent = () => {
         return () => {
             map.off('moveend', handleMoveEnd);
         };
-    }, [activeLayer]);
+    }, [activeLayer, predictionMode]);
 
     const handleLayerChange = (layerName) => {
         const map = mapInstanceRef.current;
         const layers = layersRef.current;
 
         // Remove all exclusive layers
-        [layers.population, layers.pollution, layers.pollutionMarkers, layers.climate, layers.climateWard, layers.climateMarkers, layers.dark, layers.ward, layers.markers].forEach(l => {
+        [layers.population, layers.pollution, layers.pollutionMarkers, layers.climate, layers.climateWard, layers.climateMarkers, layers.ward, layers.markers].forEach(l => {
             if (l && map.hasLayer(l)) map.removeLayer(l);
         });
+
+        if (predictionMode) return;
 
         // Add selected layer
         if (layerName === 'population') {
@@ -804,15 +1011,98 @@ const MapComponent = () => {
         } else if (layerName === 'climate') {
             if (layers.climate) layers.climate.addTo(map);
             populateHeatmap();
-        } else if (layerName === 'dark') {
-            if (layers.dark) layers.dark.addTo(map);
         }
+    };
+
+    // Prediction Mode Logic
+    useEffect(() => {
+        let interval;
+        if (isPlaying) {
+            interval = setInterval(() => {
+                setMonthOffset(prev => {
+                    if (prev >= 12) {
+                        setIsPlaying(false);
+                        return 12;
+                    }
+                    return prev + 1;
+                });
+            }, 1500); // 1.5 second per month step
+        }
+        return () => clearInterval(interval);
+    }, [isPlaying]);
+
+    const handleMonthChange = (e) => {
+        setMonthOffset(parseInt(e.target.value));
+    };
+
+    const togglePlay = () => {
+        setIsPlaying(!isPlaying);
+    };
+
+    const jumpToMonth = (offset) => {
+        setMonthOffset(offset);
     };
 
     return (
         <div style={{ position: 'relative', height: '100vh', width: '100%' }}>
             <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
             
+            {/* Prediction Mode UI */}
+            {predictionMode && (
+                <div className="prediction-controls-container">
+                    <button className="close-prediction-mode" onClick={() => setPredictionMode(false)}>×</button>
+                    <div className="prediction-header">
+                        <div className="prediction-status">
+                            <div className="status-icon">
+                                <i className="fas fa-chart-line"></i>
+                            </div>
+                            <div className="status-text">
+                                <h4>Prediction Mode</h4>
+                                <span>Monthly Average</span>
+                            </div>
+                        </div>
+                        <div className="date-display">
+                            {new Date(new Date().setMonth(new Date().getMonth() + monthOffset)).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </div>
+                    </div>
+
+                    <div className="slider-container">
+                        <input 
+                            type="range" 
+                            min="-12" 
+                            max="12" 
+                            value={monthOffset} 
+                            onChange={handleMonthChange}
+                            className="time-slider" 
+                        />
+                        <div className="slider-markers">
+                            <span className={monthOffset === -12 ? 'marker-active' : ''}>-1 Year</span>
+                            <span className={monthOffset === 0 ? 'marker-active' : ''}>Current</span>
+                            <span className={monthOffset === 12 ? 'marker-active' : ''}>+1 Year</span>
+                        </div>
+                    </div>
+
+                    <div className="controls-row">
+                        <div className="playback-controls">
+                            <button className="control-btn" onClick={() => setMonthOffset(prev => Math.max(-12, prev - 1))}>
+                                <i className="fas fa-backward"></i>
+                            </button>
+                            <button className="control-btn play-btn" onClick={togglePlay}>
+                                <i className={`fas ${isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
+                            </button>
+                            <button className="control-btn" onClick={() => setMonthOffset(prev => Math.min(12, prev + 1))}>
+                                <i className="fas fa-forward"></i>
+                            </button>
+                        </div>
+                        <div className="quick-jumps">
+                            <button className={`jump-btn ${monthOffset === -6 ? 'active' : ''}`} onClick={() => jumpToMonth(-6)}>-6 Months</button>
+                            <button className={`jump-btn ${monthOffset === 0 ? 'active' : ''}`} onClick={() => jumpToMonth(0)}>Current</button>
+                            <button className={`jump-btn ${monthOffset === 6 ? 'active' : ''}`} onClick={() => jumpToMonth(6)}>+6 Months</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {activeLayer === 'population' && (
                 <div className="leaflet-bottom leaflet-left" style={{ pointerEvents: 'auto', marginBottom: '20px', marginLeft: '10px', zIndex: 1000, position: 'absolute', bottom: '20px', left: '10px' }}>
                     <div className="leaflet-control-year-switch leaflet-control">
@@ -954,15 +1244,27 @@ const MapComponent = () => {
                                 onChange={(e) => setActiveLayer(e.target.value)} 
                             /> Climate
                         </label><br/>
-                        <label>
-                            <input 
-                                type="radio" 
-                                name="layer" 
-                                value="dark" 
-                                checked={activeLayer === 'dark'} 
-                                onChange={(e) => setActiveLayer(e.target.value)} 
-                            /> Dark Mode
-                        </label><br/>
+                        <hr style={{margin: '10px 0', border: '0', borderTop: '1px solid #eee'}}/>
+                        <button 
+                            type="button"
+                            onClick={() => setPredictionMode(true)}
+                            style={{
+                                width: '100%',
+                                padding: '8px',
+                                background: 'linear-gradient(135deg, #00c6ff, #0072ff)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '5px'
+                            }}
+                        >
+                            <i className="fas fa-chart-line"></i> Prediction Mode
+                        </button>
                     </form>
                 </div>
             </div>

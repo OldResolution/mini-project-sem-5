@@ -4,13 +4,22 @@ import 'leaflet/dist/leaflet.css';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import MapComponent from './components/MapComponent';
+import AuthLayout from './components/AuthLayout';
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={
+          <AuthLayout>
+            <Login />
+          </AuthLayout>
+        } />
+        <Route path="/signup" element={
+          <AuthLayout>
+            <Signup />
+          </AuthLayout>
+        } />
         <Route path="/map" element={<MapComponent />} />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
